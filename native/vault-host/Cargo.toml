@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# OpenBook Browser — vault native messaging host.
+# Phase 2 cryptographic-lockout host (data-at-rest protection).
+#
+# DEFAULT FEATURES MUST COMPILE WITHOUT ANY SYSTEM TPM / Secure Enclave libs.
+# The default build is the software fallback only; it links no platform crypto
+# hardware libraries and runs/tests fully offline of any TPM. The `tpm` and
+# `secure-enclave` features are OFF by default and pull in system dependencies.
+
+[package]
+name = "openbook-vault-host"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MPL-2.0"
+description = "OpenBook Browser cryptographic-lockout native messaging host (data-at-rest protection)."
+repository = "https://github.com/openbook-browser/openbook"
+publish = false
+
+[[bin]]
+name = "openbook-vault-host"
+path = "src/main.rs"
+
+[lib]
+name = "openbook_vault_host"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Hardware-backed providers. Both require system libraries and are intentionally
+# OFF in the default build so `cargo build` / `cargo test` work without a TPM
+# stack or macOS Security framework present.
+#
+# `tpm` gates the TPM 2.0 provider (Linux/Windows) via tss-esapi. Building it
+# requires libtss2 / tpm2-tss development packages on the host.
+tpm = ["dep:tss-esapi"]
+# `secure-enclave` gates the macOS Secure Enclave provider skeleton.
+secure-enclave = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# RustCrypto stack. These versions share a compatible digest/crypto-common
+# generation and interoperate (verified by build). Let cargo resolve patch levels.
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+getrandom = "0.2"
+zeroize = { version = "1.8", features = ["derive"] }
+subtle = "2.6"
+thiserror = "2"
+# Used for hex-encoding public, non-secret metadata fields (salt, nonce, wrapped
+# MK ciphertext) in vault.json. Not used for any plaintext secret material.
+hex = "0.4"
+
+# Hardware-only optional dependency. Not built unless `--features tpm`.
+[dependencies.tss-esapi]
+version = "7"
+optional = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+# Security-sensitive binary: keep panics as aborts so a panic cannot be caught
+# and resumed in a way that skips zeroization / leaves the engine half-updated.
+panic = "abort"
+opt-level = 2
