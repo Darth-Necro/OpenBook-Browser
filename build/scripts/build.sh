@@ -73,3 +73,15 @@ export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1735689600}"
 
 echo "Building target ${TARGET} with MOZCONFIG=${MOZCONFIG}."
 ./mach build
+
+# Install OpenBook config files (AutoConfig + policies) into the dist directory.
+OBJDIR_NAME="obj-openbook-${TARGET}"
+if [[ "$ARTIFACT" -eq 1 ]]; then
+  OBJDIR_NAME="obj-openbook-artifact"
+fi
+DIST_BIN="${SOURCE_DIR}/${OBJDIR_NAME}/dist/bin"
+if [[ -d "$DIST_BIN" ]]; then
+  "$REPO_ROOT/build/scripts/install-config.sh" --dist "$DIST_BIN"
+else
+  echo "Warning: dist directory not found at ${DIST_BIN}; skipping config installation." >&2
+fi

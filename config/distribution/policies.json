@@ -1,0 +1,67 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxAccounts": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "DisableFeedbackCommands": true,
+    "DisableMasterPasswordCreation": false,
+    "NetworkPrediction": false,
+    "SanitizeOnShutdown": {
+      "Cache": false,
+      "Cookies": false,
+      "Downloads": false,
+      "FormData": false,
+      "History": false,
+      "Sessions": false,
+      "SiteSettings": false,
+      "OfflineApps": false,
+      "Locked": false
+    },
+    "Preferences": {
+      "app.normandy.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "app.normandy.api_url": {
+        "Value": "",
+        "Status": "locked"
+      },
+      "app.shield.optoutstudies.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "breakpad.reportURL": {
+        "Value": "",
+        "Status": "locked"
+      },
+      "browser.crashReports.unsubmittedCheck.autoSubmit2": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "browser.tabs.crashReporting.sendReport": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "datareporting.healthreport.uploadEnabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "datareporting.policy.dataSubmissionEnabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "toolkit.telemetry.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "toolkit.telemetry.unified": {
+        "Value": false,
+        "Status": "locked"
+      }
+    }
+  }
+}
