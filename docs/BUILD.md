@@ -36,4 +36,22 @@ build/scripts/build.sh --source /tmp/openbook-upstream/firefox-145.0.2 --target 
 build/scripts/build.sh --source /tmp/openbook-upstream/firefox-145.0.2 --target macos-universal
 ```
 
+`build.sh` automatically calls `install-config.sh` at the end of the build to copy the AutoConfig loader, locked config, and enterprise policies into the Firefox dist directory.
+
 Use `--artifact` for frontend-only iteration where supported.
+
+## Phase 1 quick checks
+
+```bash
+python3 tests/phase1/test_phase1_config.py
+python3 -c "import json; json.load(open('config/distribution/policies.json'))"
+head -1 config/autoconfig/openbook.cfg   # must start with //
+```
+
+## Install config files into an existing dist directory
+
+If you have an existing Firefox build and want to apply OpenBook config files:
+
+```bash
+build/scripts/install-config.sh --dist /path/to/dist/bin
+```

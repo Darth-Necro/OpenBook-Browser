@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000001 Mon Sep 17 00:00:00 2001
+From: OpenBook Build <build@openbook.invalid>
+Date: Mon, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 0001/0001] branding: add openbook browser brand directory
+
+Introduces browser/branding/openbook/ with brand strings and build
+integration. Selected via --with-branding=browser/branding/openbook in
+all per-platform mozconfigs.
+
+Binary branding assets (icons, SVGs) are tracked in branding/ in the
+OpenBook repository and must be present before a release build.
+---
+ browser/branding/openbook/configure.sh                   |  9 +++++++++
+ browser/branding/openbook/jar.mn                         |  8 ++++++++
+ browser/branding/openbook/locales/en-US/brand.dtd        |  6 ++++++
+ browser/branding/openbook/locales/en-US/brand.properties |  4 ++++
+ browser/branding/openbook/moz.build                      | 12 ++++++++++++
+ 5 files changed, 39 insertions(+)
+ create mode 100755 browser/branding/openbook/configure.sh
+ create mode 100644 browser/branding/openbook/jar.mn
+ create mode 100644 browser/branding/openbook/locales/en-US/brand.dtd
+ create mode 100644 browser/branding/openbook/locales/en-US/brand.properties
+ create mode 100644 browser/branding/openbook/moz.build
+
+diff --git a/browser/branding/openbook/configure.sh b/browser/branding/openbook/configure.sh
+new file mode 100755
+index 0000000..0000001
+--- /dev/null
++++ b/browser/branding/openbook/configure.sh
+@@ -0,0 +1,9 @@
++# OpenBook Browser branding configure.sh
++# Sourced by Firefox configure when --with-branding=browser/branding/openbook.
++MOZ_APP_NAME=openbook
++MOZ_APP_DISPLAYNAME="OpenBook Browser"
++MOZ_MACBUNDLE_NAME="OpenBook Browser.app"
++MOZ_APP_VENDOR="OpenBook"
++MOZ_APP_ID="{c2e00de3-2c7b-4bfe-8a57-4c38e1b3a1a0}"
++export MOZ_APP_NAME MOZ_APP_DISPLAYNAME MOZ_MACBUNDLE_NAME MOZ_APP_VENDOR MOZ_APP_ID
++
+diff --git a/browser/branding/openbook/jar.mn b/browser/branding/openbook/jar.mn
+new file mode 100644
+index 0000000..0000002
+--- /dev/null
++++ b/browser/branding/openbook/jar.mn
+@@ -0,0 +1,8 @@
++browser.jar:
++% content branding %content/branding/
++    content/branding/about-logo.png             (content/about-logo.png)
++    content/branding/about-logo@2x.png          (content/about-logo@2x.png)
++    content/branding/about-logo.svg             (content/about-logo.svg)
++    content/branding/identity-icons-brand.svg   (content/identity-icons-brand.svg)
++    content/branding/favicon32.ico              (content/favicon32.ico)
++    content/branding/favicon64.ico              (content/favicon64.ico)
+diff --git a/browser/branding/openbook/locales/en-US/brand.dtd b/browser/branding/openbook/locales/en-US/brand.dtd
+new file mode 100644
+index 0000000..0000003
+--- /dev/null
++++ b/browser/branding/openbook/locales/en-US/brand.dtd
+@@ -0,0 +1,6 @@
++<!ENTITY  brandShortName      "OpenBook">
++<!ENTITY  brandShorterName    "OpenBook">
++<!ENTITY  brandFullName       "OpenBook Browser">
++<!ENTITY  vendorShortName     "OpenBook">
++<!ENTITY  trademarkInfo.part1 "OpenBook Browser is free and open-source software released under the Mozilla Public License.">
++
+diff --git a/browser/branding/openbook/locales/en-US/brand.properties b/browser/branding/openbook/locales/en-US/brand.properties
+new file mode 100644
+index 0000000..0000004
+--- /dev/null
++++ b/browser/branding/openbook/locales/en-US/brand.properties
+@@ -0,0 +1,4 @@
++brandShortName=OpenBook
++brandShorterName=OpenBook
++brandFullName=OpenBook Browser
++vendorShortName=OpenBook
+diff --git a/browser/branding/openbook/moz.build b/browser/branding/openbook/moz.build
+new file mode 100644
+index 0000000..0000005
+--- /dev/null
++++ b/browser/branding/openbook/moz.build
+@@ -0,0 +1,12 @@
++# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
++# vim: set filetype=python:
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++JAR_MANIFESTS += ['jar.mn']
++
++FINAL_TARGET_FILES.defaults.preferences += ['default-prefs.js']
++
++with Files('**'):
++    BUG_COMPONENT = ('OpenBook Browser', 'Branding')
+--
+2.43.0
