@@ -1,0 +1,9 @@
+{
+  "name": "org.openbook.vpn_helper",
+  "description": "OpenBook VPN exit-IP verification host (DEFERRED scaffold; verifies exit IP, never creates tunnels).",
+  "path": "/usr/lib/openbook/org.openbook.vpn_helper",
+  "type": "stdio",
+  "allowed_extensions": [
+    "proxy-manager@openbook.browser"
+  ]
+}

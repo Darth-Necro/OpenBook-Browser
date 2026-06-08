@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# OpenBook Browser — security contact and disclosure policy (RFC 9116).
+#
+# This file is served at /.well-known/security.txt and mirrored at the web root.
+# The canonical, machine-read copy is the one under /.well-known/.
+#
+# PLACEHOLDER CONTACT: security@openbook.browser is a placeholder. Before any
+# public release this MUST be replaced with a real, monitored disclosure channel
+# (a monitored mailbox and/or a coordinated-disclosure platform), and the
+# signature/encryption fields below should be populated (Encryption:, and a
+# detached PGP signature served as security.txt.sig per RFC 9116 §2.3).
+#
+# Sustainability note (Build Plan §11): "free forever, no data harvesting" is a
+# FUNDING commitment, not code. OpenBook must adopt a credible model early —
+# either a nonprofit + donations/grants (a 501(c)(3), in the Ladybird Browser
+# Initiative mold) or a parent commercial product (as Mullvad VPN funds Mullvad
+# Browser). Mozilla's dependence on a search deal is the cautionary case. Record
+# the chosen model in docs/DECISIONS.md before release; the disclosure channel
+# above should be owned by that funded entity.
+
+Contact: mailto:security@openbook.browser
+Expires: 2027-06-08T00:00:00Z
+Preferred-Languages: en
+Policy: https://github.com/openbook-browser/openbook/blob/main/docs/SECURITY.md
+Canonical: https://openbook.browser/.well-known/security.txt

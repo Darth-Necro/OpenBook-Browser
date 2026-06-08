@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# OpenBook Browser — VPN exit-IP verification native messaging host.
+#
+# DEFERRED scaffold (Build Plan §6). OpenBook's supported real-tunnel model is
+# "OS-level VPN, browser verifies the exit IP" (§6 Option 1). This host does NOT
+# create or manage tunnels and does NOT ship a userspace WireGuard stack (§6
+# rejects that for v1). It implements only the native-messaging protocol and an
+# exit-IP VERIFICATION helper that performs NO outbound traffic at rest.
+#
+# Dependencies are intentionally minimal (serde + serde_json) so the default
+# build compiles offline-fast and links no network client. The actual outbound
+# probe is gated behind an explicit `verify` request and is stubbed in this
+# scaffold (see src/protocol.rs); no network call happens unless a user-driven
+# `verify` is invoked, and the scaffold returns a structured not-implemented or
+# an expected-value comparison rather than reaching the network.
+
+[package]
+name = "openbook-vpn-helper"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MPL-2.0"
+description = "OpenBook Browser VPN exit-IP verification native messaging host (DEFERRED scaffold; verifies, never tunnels)."
+repository = "https://github.com/openbook-browser/openbook"
+publish = false
+
+[[bin]]
+name = "openbook-vpn-helper"
+path = "src/main.rs"
+
+[lib]
+name = "openbook_vpn_helper"
+path = "src/protocol.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+# Match the vault host posture: a host that parses untrusted IPC should abort on
+# panic rather than allow an unwound, half-handled state.
+panic = "abort"
+opt-level = 2

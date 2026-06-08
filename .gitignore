@@ -3,10 +3,10 @@
 # Rust
 /target/
 **/target/
-native/**/Cargo.lock
 fuzz/target/
 fuzz/corpus/
 fuzz/artifacts/
+# Cargo.lock IS committed for the binary crates (reproducible-build invariant, §11).
 
 # Node / TypeScript
 node_modules/
