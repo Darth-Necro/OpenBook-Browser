@@ -1,0 +1,4 @@
+# Phase 0 artifact build configuration for frontend-only iteration.
+ac_add_options --enable-application=browser
+ac_add_options --enable-artifact-builds
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-artifact
