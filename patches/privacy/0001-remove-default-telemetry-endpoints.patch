@@ -1,0 +1,42 @@
+From 1a0003000000000000000000000000000000ob03 Mon Sep 17 00:00:00 2001
+From: OpenBook Maintainers <goodhackersolutions@gmail.com>
+Date: Sun, 8 Jun 2026 00:00:02 +0000
+Subject: [PATCH 3/6] privacy: neutralize compiled-in telemetry/Normandy endpoints
+
+SPDX-License-Identifier: MPL-2.0
+
+Belt-and-suspenders for the zero-telemetry invariant (CLAUDE.md security
+invariant #1, docs/OpenBook-Browser-Build-Plan.md §10/§11). The locked
+AutoConfig (config/autoconfig/openbook.cfg) already sets the telemetry/Normandy
+enable flags off and blanks their server prefs. This patch additionally removes
+the *compiled-in default endpoint URLs* from the all-prefs file so that even a
+code path that ignored the runtime prefs has no Mozilla ingestion host baked in
+to contact. Empty string = nowhere to phone home.
+
+Endpoints neutralized: toolkit.telemetry.server (incoming.telemetry.mozilla.org),
+app.normandy.api_url (normandy.cdn.mozilla.net), toolkit.coverage.endpoint.base,
+and datareporting upload default flipped off.
+
+NOTE: exact hunk context is rebased in CI against Firefox 145.0.2.
+---
+ modules/libpref/init/all.js | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/modules/libpref/init/all.js b/modules/libpref/init/all.js
+index 5555555..6666666 100644
+--- a/modules/libpref/init/all.js
++++ b/modules/libpref/init/all.js
+@@ -2200,7 +2200,7 @@ pref("toolkit.telemetry.unified", true);
+ // OpenBook: blank all compiled-in telemetry/experiment ingestion endpoints so
+ // there is literally no Mozilla host to reach (docs §11). Runtime locks that
+ // also disable the features live in openbook.cfg.
+-pref("toolkit.telemetry.server", "https://incoming.telemetry.mozilla.org");
+-pref("toolkit.coverage.endpoint.base", "https://coverage.mozilla.org");
+-pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
+-pref("datareporting.healthreport.uploadEnabled", true);
++pref("toolkit.telemetry.server", "");
++pref("toolkit.coverage.endpoint.base", "");
++pref("app.normandy.api_url", "");
++pref("datareporting.healthreport.uploadEnabled", false);
+--
+2.45.0

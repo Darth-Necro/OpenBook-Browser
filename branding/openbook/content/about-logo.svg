@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!--
+  about:logo wordmark shown in the About dialog and about:about-style surfaces.
+  Original OpenBook artwork (open-book glyph + wordmark). Not derived from any
+  Firefox/Mozilla mark (§13).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="96" viewBox="0 0 320 96" role="img" aria-label="OpenBook">
+  <!-- Glyph: compact open book -->
+  <g transform="translate(8,16)">
+    <rect x="30" y="6" width="6" height="52" rx="3" fill="#1b3a8c"/>
+    <path d="M33 12 C 22 4, 6 3, -4 8 L -4 50 C 6 45, 22 46, 33 54 Z"
+          fill="#ffffff" stroke="#1b3a8c" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M33 12 C 44 4, 60 3, 70 8 L 70 50 C 60 45, 44 46, 33 54 Z"
+          fill="#eef2f9" stroke="#1b3a8c" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="96" y="60" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="42" font-weight="700" fill="#1b3a8c">OpenBook</text>
+</svg>

@@ -1,0 +1,52 @@
+From 1a0006000000000000000000000000000000ob06 Mon Sep 17 00:00:00 2001
+From: OpenBook Maintainers <goodhackersolutions@gmail.com>
+Date: Sun, 8 Jun 2026 00:00:05 +0000
+Subject: [PATCH 6/6] features: package native-messaging host manifests root-owned
+
+SPDX-License-Identifier: MPL-2.0
+
+Packaging hook for the two OpenBook native messaging hosts:
+  - org.openbook.vault_host  (Rust: Argon2id, TPM2/Secure Enclave, key erasure)
+  - org.openbook.vpn_helper  (optional VPN/leak helper, later phase)
+
+The browser READS and validates a native-host manifest's allowed_extensions but
+does NOT install or manage the host -- its security model is that of a native
+application (docs/OpenBook-Browser-Build-Plan.md §1). Therefore the manifest and
+the host binary MUST be installed by OS packaging, root-owned and NOT
+user-writable. A user-writable native-host manifest or binary is a local
+privilege-escalation hole and is a RELEASE BLOCKER (§11).
+
+This adds install rules to the packaging manifest so deb/rpm/pkg place the host
+manifests at the platform native-messaging path with mode 0644 root:root, and
+the Rust host binary (built from native/vault-host) at mode 0755 root:root in a
+non-user-writable libexec directory. Each manifest's allowed_extensions binds it
+to its first-party extension ID (vault_host <-> vault-ui@openbook.browser;
+vpn_helper <-> proxy-manager@openbook.browser).
+
+NOTE: exact paths/format are reconciled in CI against Firefox 145.0.2 packaging.
+---
+ browser/installer/package-manifest.in | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/browser/installer/package-manifest.in b/browser/installer/package-manifest.in
+index bbbbbbb..ccccccc 100644
+--- a/browser/installer/package-manifest.in
++++ b/browser/installer/package-manifest.in
+@@ -60,4 +60,15 @@
+ @RESPATH@/defaults/pref/autoconfig.js
+ @BINPATH@/openbook.cfg
+ ; [Browser Chrome Files]
++; OpenBook native-messaging host manifests + binary.
++;   Installed by OS packaging root-owned, NOT user-writable (docs §11). The
++;   post-install step fixes ownership to root:root and mode (manifests 0644,
++;   binary 0755). The browser only validates allowed_extensions; it never
++;   manages the host itself.
++#ifdef XP_LINUX
++@RESPATH@/native-messaging-hosts/org.openbook.vault_host.json
++@RESPATH@/native-messaging-hosts/org.openbook.vpn_helper.json
++#endif
++@BINPATH@/openbook-vault-host
++; (end OpenBook native-messaging hosts)
+ @RESPATH@/browser/chrome.manifest
+--
+2.45.0

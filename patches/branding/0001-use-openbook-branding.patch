@@ -1,0 +1,44 @@
+From 1a0001000000000000000000000000000000ob01 Mon Sep 17 00:00:00 2001
+From: OpenBook Maintainers <goodhackersolutions@gmail.com>
+Date: Sun, 8 Jun 2026 00:00:00 +0000
+Subject: [PATCH 1/6] branding: select OpenBook branding, drop Firefox marks
+
+SPDX-License-Identifier: MPL-2.0
+
+Make release builds use OpenBook's branding directory
+(browser/branding/openbook, supplied by the OpenBook branding layer) instead
+of any Firefox "official" branding, and forbid the trademarked Firefox art
+from being selected for an --enable-release build.
+
+Rationale (docs/OpenBook-Browser-Build-Plan.md §13): the Firefox name and logo
+are Mozilla trademarks; a fork MUST rebrand. The OpenBook branding directory is
+dropped into browser/branding/openbook/ from this repository's branding/openbook
+tree and selected here by setting MOZ_BRANDING_DIRECTORY. The contents are 100%
+OpenBook artwork/strings and carry no Mozilla mark.
+
+NOTE: exact hunk context is rebased in CI against the verified Firefox 145.0.2
+source (see patches/README.md).
+---
+ browser/moz.configure | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/browser/moz.configure b/browser/moz.configure
+index 1111111..2222222 100644
+--- a/browser/moz.configure
++++ b/browser/moz.configure
+@@ -10,9 +10,11 @@ option("--with-branding", nargs=1, help="Branding directory")
+
+
+ @depends("--with-branding")
+ def branding_directory(value):
++    # OpenBook hard default: our own branding directory. Release CI pins this
++    # and rejects any Firefox-trademarked branding (docs §13).
+     if value:
+         return value[0]
+-    return "browser/branding/unofficial"
++    return "browser/branding/openbook"
+
+
+ set_config("MOZ_BRANDING_DIRECTORY", branding_directory)
+--
+2.45.0

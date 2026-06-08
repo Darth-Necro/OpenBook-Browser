@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!--
+  OpenBook master application icon.
+  Original artwork: a stylized open book. This is NOT derived from Firefox or
+  any Mozilla mark (docs/OpenBook-Browser-Build-Plan.md §13). All release raster
+  icons (.ico/.icns/.png) are generated from this single source at build time;
+  see content/branding.json for the required sizes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="OpenBook">
+  <defs>
+    <linearGradient id="ob-page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe6ef"/>
+    </linearGradient>
+    <linearGradient id="ob-cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f6df0"/>
+      <stop offset="1" stop-color="#1b3a8c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded background tile -->
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#ob-cover)"/>
+
+  <!-- Book spine -->
+  <rect x="248" y="150" width="16" height="248" rx="8" fill="#13265e"/>
+
+  <!-- Left page -->
+  <path d="M256 168
+           C 210 138, 140 132, 96 150
+           L 96 372
+           C 140 354, 210 360, 256 390 Z"
+        fill="url(#ob-page)" stroke="#13265e" stroke-width="6" stroke-linejoin="round"/>
+  <!-- Right page -->
+  <path d="M256 168
+           C 302 138, 372 132, 416 150
+           L 416 372
+           C 372 354, 302 360, 256 390 Z"
+        fill="url(#ob-page)" stroke="#13265e" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Text lines (left) -->
+  <g stroke="#9fb2d8" stroke-width="10" stroke-linecap="round">
+    <line x1="128" y1="196" x2="224" y2="208"/>
+    <line x1="128" y1="232" x2="224" y2="244"/>
+    <line x1="128" y1="268" x2="224" y2="280"/>
+    <line x1="128" y1="304" x2="208" y2="314"/>
+  </g>
+  <!-- Text lines (right) -->
+  <g stroke="#9fb2d8" stroke-width="10" stroke-linecap="round">
+    <line x1="288" y1="208" x2="384" y2="196"/>
+    <line x1="288" y1="244" x2="384" y2="232"/>
+    <line x1="288" y1="280" x2="384" y2="268"/>
+    <line x1="304" y1="314" x2="384" y2="304"/>
+  </g>
+</svg>

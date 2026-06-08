@@ -1,0 +1,51 @@
+From 1a0005000000000000000000000000000000ob05 Mon Sep 17 00:00:00 2001
+From: OpenBook Maintainers <goodhackersolutions@gmail.com>
+Date: Sun, 8 Jun 2026 00:00:04 +0000
+Subject: [PATCH 5/6] features: recognize bundled OpenBook system extensions
+
+SPDX-License-Identifier: MPL-2.0
+
+Hook so the three first-party OpenBook extensions are recognized and allowed by
+the build as bundled/built-in extensions:
+  - vault-ui@openbook.browser      (lock screen / cryptographic-lockout UI)
+  - proxy-manager@openbook.browser (proxy switching + fail-closed leak UI)
+  - ai-sidebar@openbook.browser    (opt-in AI assistant, OFF by default)
+
+This registers their install location so packaging can drop the built XPIs into
+the application's bundled-extensions directory and the front-end treats them as
+first-party. ExtensionSettings in config/policies/policies.json additionally
+allowlists these IDs at the policy layer.
+
+This is only the build/recognition hook; the extensions themselves live in
+extensions/ and are built separately. AI stays OFF by default with no host
+permissions until the user opts in (invariant #5).
+
+NOTE: exact hunk context is rebased in CI against Firefox 145.0.2.
+---
+ toolkit/mozapps/extensions/internal/builtinExtensions.json | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/toolkit/mozapps/extensions/internal/builtinExtensions.json b/toolkit/mozapps/extensions/internal/builtinExtensions.json
+index 9999999..aaaaaaa 100644
+--- a/toolkit/mozapps/extensions/internal/builtinExtensions.json
++++ b/toolkit/mozapps/extensions/internal/builtinExtensions.json
+@@ -1,2 +1,17 @@
+ [
++  {
++    "id": "vault-ui@openbook.browser",
++    "location": "app-builtin",
++    "base": "resource://openbook-vault-ui/"
++  },
++  {
++    "id": "proxy-manager@openbook.browser",
++    "location": "app-builtin",
++    "base": "resource://openbook-proxy-manager/"
++  },
++  {
++    "id": "ai-sidebar@openbook.browser",
++    "location": "app-builtin",
++    "base": "resource://openbook-ai-sidebar/"
++  }
+ ]
+--
+2.45.0
