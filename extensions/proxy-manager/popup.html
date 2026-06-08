@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Proxy</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>OpenBook Proxy</h1>
+      <div id="status" class="status status-direct" role="status" aria-live="polite">
+        <span id="status-dot" class="dot"></span>
+        <span id="status-text">…</span>
+      </div>
+    </header>
+
+    <form id="proxy-form" autocomplete="off">
+      <label for="type">Proxy type</label>
+      <select id="type">
+        <option value="socks">SOCKS5 (remote DNS)</option>
+        <option value="socks4">SOCKS4</option>
+        <option value="http">HTTP</option>
+        <option value="https">HTTPS</option>
+      </select>
+
+      <div class="row">
+        <div class="grow">
+          <label for="host">Host</label>
+          <input id="host" type="text" placeholder="127.0.0.1" />
+        </div>
+        <div class="port">
+          <label for="port">Port</label>
+          <input id="port" type="number" min="1" max="65535" placeholder="1080" />
+        </div>
+      </div>
+
+      <div class="check">
+        <input id="enabled" type="checkbox" />
+        <label for="enabled">Route this profile through the proxy</label>
+      </div>
+
+      <p id="form-error" class="error" role="alert"></p>
+      <button id="save" type="submit">Apply</button>
+    </form>
+
+    <hr />
+
+    <div class="check">
+      <input id="killswitch" type="checkbox" />
+      <label for="killswitch"
+        >Fail-closed kill-switch (block all traffic unless the proxy is healthy)</label
+      >
+    </div>
+
+    <div id="ipv6-warning" class="banner banner-warn" hidden></div>
+
+    <details>
+      <summary>Leak controls</summary>
+      <ul class="controls">
+        <li id="ctl-webrtc">WebRTC: …</li>
+        <li id="ctl-dns">DNS: …</li>
+        <li id="ctl-ipv6">IPv6: …</li>
+        <li id="ctl-failclosed">Fail-closed: …</li>
+      </ul>
+      <p class="muted">
+        DNS-through-proxy and IPv6 disabling are backed by OpenBook policy prefs
+        (<code>network.proxy.socks_remote_dns</code>,
+        <code>network.dns.disableIPv6</code>), not by this extension.
+      </p>
+    </details>
+
+    <button id="probe" class="secondary">Re-check now</button>
+
+    <script type="module" src="dist/popup.js"></script>
+  </body>
+</html>

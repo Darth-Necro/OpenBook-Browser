@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "OpenBook Assistant",
+  "short_name": "Assistant",
+  "version": "0.1.0",
+  "description": "Opt-in, off-by-default AI assistant for OpenBook. No provider, no network, no telemetry until you explicitly enable it. Read-only by default.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ai-sidebar@openbook.browser",
+      "strict_min_version": "145.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "permissions": [
+    "storage"
+  ],
+  "optional_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*/*"
+  ],
+  "sidebar_action": {
+    "default_title": "OpenBook Assistant",
+    "default_panel": "sidebar.html"
+  },
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  }
+}

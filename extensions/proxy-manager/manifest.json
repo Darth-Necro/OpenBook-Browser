@@ -1,0 +1,33 @@
+{
+  "manifest_version": 2,
+  "name": "OpenBook Proxy",
+  "short_name": "Proxy",
+  "version": "0.1.0",
+  "description": "Per-profile proxy with fail-closed kill-switch and WebRTC/DNS/IPv6 leak controls for OpenBook.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "proxy-manager@openbook.browser",
+      "strict_min_version": "145.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "permissions": [
+    "proxy",
+    "privacy",
+    "webRequest",
+    "webRequestBlocking",
+    "dns",
+    "storage",
+    "<all_urls>"
+  ],
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "OpenBook Proxy",
+    "default_popup": "popup.html"
+  }
+}

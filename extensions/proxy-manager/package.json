@@ -1,0 +1,20 @@
+{
+  "name": "openbook-proxy-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenBook Proxy — per-profile proxy + fail-closed leak controls (Phase 3).",
+  "license": "MPL-2.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "web-ext lint -s . --ignore-files \"node_modules/**\" \"src/**\" \"*.map\" \"package*.json\" \"tsconfig.json\" \"jest.config.js\"",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^120.0.4",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.5",
+    "typescript": "^5.5.4",
+    "web-ext": "^8.2.0"
+  }
+}

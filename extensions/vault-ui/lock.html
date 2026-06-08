@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Vault — Locked</title>
+    <link rel="stylesheet" href="vault.css" />
+  </head>
+  <body>
+    <main>
+      <h1>OpenBook Vault is locked</h1>
+      <dl class="status-grid">
+        <dt>State</dt>
+        <dd id="state-label">…</dd>
+        <dt>Protection</dt>
+        <dd id="hardware-label">…</dd>
+      </dl>
+
+      <div id="software-warning" class="banner banner-warn" hidden>
+        Software-only mode: the attempt limit is advisory against offline disk
+        imaging; passphrase strength is your protection.
+      </div>
+
+      <div id="attempts" class="attempts attempts-none" aria-live="polite"></div>
+
+      <form id="form" autocomplete="off">
+        <label for="secret">Passphrase</label>
+        <input id="secret" type="password" autocomplete="current-password" />
+        <p id="countdown" class="banner banner-warn" aria-live="assertive" hidden></p>
+        <button id="submit" type="submit">Unlock</button>
+        <p id="message" class="message" role="alert" aria-live="polite"></p>
+      </form>
+
+      <p id="unlocked" class="banner banner-warn" hidden>Vault unlocked.</p>
+
+      <div id="erased" class="banner banner-crit" role="alert" hidden></div>
+    </main>
+    <script type="module" src="dist/lock.js"></script>
+  </body>
+</html>
