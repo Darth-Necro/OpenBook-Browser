@@ -24,7 +24,8 @@
 #   --format         tar.xz | deb | rpm | flatpak | appimage | dmg | pkg | exe | msi
 #
 # Exit codes: 0 success; 2 usage error; 3 missing/invalid source; 4 missing
-# packaging prerequisite; 5 target/format mismatch; 6 packaging step failed.
+# packaging prerequisite; 5 target/format mismatch; 6 packaging step failed;
+# 7 OpenBook security config missing from the built dist.
 
 set -euo pipefail
 
@@ -128,6 +129,21 @@ case "$FORMAT" in
 esac
 
 echo "$PROG: packaging target=$TARGET format=$FORMAT from source=$SOURCE_DIR"
+
+# --- verify the OpenBook hardening layer is present in the dist (fail closed) -
+# build.sh installs AutoConfig + policies into the dist; refuse to package a build
+# that is missing them (it would ship without telemetry-off / enterprise policies —
+# a release-blocking security regression, §4/§11).
+objdir="obj-openbook-${TARGET}"
+dist_dir=""
+for cand in "$SOURCE_DIR/$objdir/dist/bin" "$SOURCE_DIR/$objdir"/dist/*.app/Contents/Resources; do
+  [[ -d "$cand" ]] && { dist_dir="$cand"; break; }
+done
+[[ -n "$dist_dir" ]] || die 3 "built dist not found under $SOURCE_DIR/$objdir/dist (run build/scripts/build.sh first)"
+for rel in "defaults/pref/autoconfig.js" "openbook.cfg" "distribution/policies.json"; do
+  [[ -f "$dist_dir/$rel" ]] || die 7 "OpenBook security config missing from dist: $rel (run build/scripts/install-config.sh --dist '$dist_dir'); refusing to package an unhardened build"
+done
+echo "$PROG: verified OpenBook AutoConfig + policies present in $dist_dir"
 
 # --- base package: mach package ---------------------------------------------
 # Always produce the base package first; the OS format wraps/derives from it.

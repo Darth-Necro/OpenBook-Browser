@@ -28,7 +28,10 @@ A release is blocked if any of these is not satisfied:
    counter; the no-hardware fallback requires a strong Argon2id passphrase and is labeled weaker.
 6. **Permissions invariant.** `openbook.cfg`, `defaults/pref/*.js`, and each native host binary +
    manifest install **root-owned and not user-writable**. A user-writable privileged-JS config or
-   native host is a local privilege-escalation hole and is a release blocker.
+   native host is a local privilege-escalation hole and is a release blocker. Installed by
+   `install-config.sh` (mode 0644) and verified on the staged package by
+   `verify-release-permissions.sh` (root-owned, not group/other-writable; `--require-root` on
+   `install-config.sh` does the same post-install check).
 7. **AI off by default.** No provider, network calls, or telemetry until explicit opt-in; read-only by
    default; per-action confirmation for any action; model output never auto-executed.
 8. **Destructive tests are sandboxed.** Lockout/erasure/mount tests run only in disposable

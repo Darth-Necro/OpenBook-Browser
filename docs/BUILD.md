@@ -109,10 +109,22 @@ build/scripts/build.sh --source /tmp/openbook-upstream/firefox-145.0.2 --target 
 build/scripts/build.sh --source /tmp/openbook-upstream/firefox-145.0.2 --target linux-x64 --artifact
 ```
 
+`build.sh` stages `branding/openbook/` into `browser/branding/openbook/` before the build and, after
+it, installs the OpenBook settings layer into the dist via `install-config.sh` (AutoConfig +
+`policies.json`). It **fails closed** if branding, the dist, or the config cannot be installed — a build
+never reports success without the hardening layer. `--skip-config-install` is for local development only
+and its output must not be released. To install the config into a dist manually:
+
+```bash
+build/scripts/install-config.sh --dist <objdir>/dist/bin                         # Linux/Windows
+build/scripts/install-config.sh --dist <objdir>/dist/*.app/Contents/Resources    # macOS
+```
+
 ## Package, sign, SBOM, reproducibility (Phase 5)
 
 ```bash
 build/scripts/package.sh --source /tmp/openbook-upstream/firefox-145.0.2 --target linux-x64 --format deb
+build/scripts/verify-release-permissions.sh --root <staged-package-root>     # §11 root-owned check
 build/scripts/sign.sh    --target linux-x64 --artifact dist/openbook_*.deb   # keys from HSM/env only
 ci/sbom.sh                                                                   # CycloneDX SBOM
 ci/repro-diff.sh DIR_A DIR_B                                                 # rebuild-and-diff
