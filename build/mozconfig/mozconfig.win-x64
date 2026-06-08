@@ -1,0 +1,4 @@
+# Phase 0 unmodified Firefox Windows x64 build configuration.
+ac_add_options --enable-application=browser
+ac_add_options --target=x86_64-pc-windows-msvc
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-win-x64

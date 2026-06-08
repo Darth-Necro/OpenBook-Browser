@@ -1,0 +1,3 @@
+# Phase 0 unmodified Firefox Linux x64 build configuration.
+ac_add_options --enable-application=browser
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-linux-x64

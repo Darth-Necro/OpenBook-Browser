@@ -1,0 +1,52 @@
+name: Phase 0 Foundation Pipeline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_full_firefox_build:
+        description: "Run full Firefox mach builds on matrix hosts"
+        required: true
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+jobs:
+  static-checks:
+    name: Static Phase 0 checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate repository scaffold
+        run: python3 tests/phase0/test_phase0_structure.py
+      - name: Validate shell syntax
+        run: find build/scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+  build-path:
+    name: Unmodified Firefox build path (${{ matrix.target }})
+    needs: static-checks
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_firefox_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            os: ubuntu-latest
+          - target: win-x64
+            os: windows-latest
+          - target: macos-universal
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Explain signing-key prerequisite
+        run: echo "Provide OPENBOOK_UPSTREAM_GPG_KEYRING through runner setup before enabling fetch/build."
+      - name: Fetch, verify, and build unmodified Firefox
+        shell: bash
+        env:
+          OPENBOOK_UPSTREAM_GPG_KEYRING: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_PATH }}
+        run: |
+          build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
+          build/scripts/apply-patches.sh --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+          build/scripts/build.sh --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2" --target "${{ matrix.target }}"
