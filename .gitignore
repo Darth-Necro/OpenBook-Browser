@@ -1,0 +1,50 @@
+# OpenBook Browser — build and dependency artifacts
+
+# Rust
+/target/
+**/target/
+native/**/Cargo.lock
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/
+
+# Node / TypeScript
+node_modules/
+**/node_modules/
+extensions/**/dist/
+*.tsbuildinfo
+
+# Firefox upstream + build outputs
+/upstream/
+firefox-*.source.tar.xz
+SHA256SUMS
+SHA256SUMS.asc
+obj-openbook-*/
+**/obj-openbook-*/
+
+# Packaging / signing / SBOM outputs
+/dist/
+/out/
+/sbom/
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+*.pkg
+*.msi
+*.exe
+*.mar
+*.asc
+*.sig
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
