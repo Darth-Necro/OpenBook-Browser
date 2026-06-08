@@ -12,13 +12,24 @@ Applies ordered patches from branding, privacy, and features subdirectories.
 USAGE
 }
 
+require_value() {
+  # require_value FLAG REMAINING NEXT — fail with usage if no value follows FLAG.
+  if [[ "$2" -lt 2 || "${3:-}" == --* ]]; then
+    echo "Option $1 requires a value." >&2
+    usage >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source)
+      require_value "$1" "$#" "${2:-}"
       SOURCE_DIR="$2"
       shift 2
       ;;
     --patch-root)
+      require_value "$1" "$#" "${2:-}"
       PATCH_ROOT="$2"
       shift 2
       ;;
@@ -48,7 +59,17 @@ if [[ ! -d "$PATCH_ROOT" ]]; then
   exit 3
 fi
 
-mapfile -t patches < <(find "$PATCH_ROOT" -type f \( -name '*.patch' -o -name '*.diff' \) | sort)
+# Apply phases in the documented order: branding, then privacy, then features,
+# sorting within each phase. A bare lexicographic sort over the whole tree would
+# order the directories branding/features/privacy, contradicting that contract.
+patch_phase_dirs=(branding privacy features)
+patches=()
+for phase in "${patch_phase_dirs[@]}"; do
+  [[ -d "$PATCH_ROOT/$phase" ]] || continue
+  while IFS= read -r patch_file; do
+    [[ -n "$patch_file" ]] && patches+=("$patch_file")
+  done < <(find "$PATCH_ROOT/$phase" -type f \( -name '*.patch' -o -name '*.diff' \) | sort)
+done
 if [[ "${#patches[@]}" -eq 0 ]]; then
   echo "No patches found under ${PATCH_ROOT}; upstream source remains unmodified."
   exit 0

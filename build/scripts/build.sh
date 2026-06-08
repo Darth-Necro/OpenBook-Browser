@@ -14,13 +14,24 @@ Invokes Firefox's mach build with the matching Phase 0 mozconfig.
 USAGE
 }
 
+require_value() {
+  # require_value FLAG REMAINING NEXT — fail with usage if no value follows FLAG.
+  if [[ "$2" -lt 2 || "${3:-}" == --* ]]; then
+    echo "Option $1 requires a value." >&2
+    usage >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source)
+      require_value "$1" "$#" "${2:-}"
       SOURCE_DIR="$2"
       shift 2
       ;;
     --target)
+      require_value "$1" "$#" "${2:-}"
       TARGET="$2"
       shift 2
       ;;
