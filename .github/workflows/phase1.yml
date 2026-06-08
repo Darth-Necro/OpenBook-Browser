@@ -4,6 +4,12 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_full_firefox_build:
+        description: "Set to 'true' to execute a full Firefox build"
+        required: false
+        default: "false"
 
 jobs:
   config-checks:
@@ -63,9 +69,3 @@ jobs:
           build/scripts/build.sh \
             --source /tmp/openbook-upstream/firefox-145.0.2 \
             --target ${{ matrix.target }}
-
-    inputs:
-      run_full_firefox_build:
-        description: "Set to 'true' to execute a full Firefox build"
-        required: false
-        default: "false"
