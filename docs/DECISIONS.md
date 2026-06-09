@@ -169,3 +169,64 @@
   precise contract. Supersedes the earlier "keep updates on" posture in the
   cfg/policy tests, whose security goal (patches keep flowing) is met by the
   package channels instead.
+
+## ADR-0019 — CI hosting for full Firefox builds
+
+- **Date:** 2026-06-09
+- **Decision:** Treat GitHub-hosted runners as suitable for static checks only.
+  Full Firefox builds (the Phase 0 acceptance gate and the Phase 1 `build-path`
+  matrix) require a self-hosted runner pool labeled `openbook-build` with ≥16 GB
+  RAM and ≥50 GB free disk. The workflows are wired with `workflow_dispatch`
+  gates and a comment documenting the runner requirement; the runner pool itself
+  is out of scope.
+- **Options considered:** GitHub-hosted only (proven impossible — insufficient
+  resources); self-hosted only (correct but requires infra); managed third-party
+  (Cirrus CI, BuildJet) with privacy-acceptable terms.
+- **Rationale:** ADR-0003 hand-waved the resource constraint and the workflows
+  shipped with steps that cannot succeed on hosted runners. Calling out the
+  self-hosted-runner prerequisite explicitly closes the gap between the
+  documented gate and the implemented pipeline. (Renumbered from PR #4's
+  ADR-0007, which collided with the existing ADR-0007.)
+
+## ADR-0020 — Compile-time disable of telemetry, crash reporter, updater, EME
+
+- **Date:** 2026-06-09
+- **Decision:** All platform mozconfigs pass `--disable-crashreporter`,
+  `--disable-updater`, `--disable-eme`, and `mk_add_options MOZ_TELEMETRY_REPORTING=`,
+  `MOZ_DATA_REPORTING=`, `MOZ_SERVICES_HEALTHREPORT=`, `MOZ_NORMANDY=`,
+  `MOZ_CRASHREPORTER=0`. Windows additionally passes `--disable-default-browser-agent`.
+  The runtime `lockPref` set in `openbook.cfg` (and ADR-0018's updater posture)
+  is retained as a second line of defense. The artifact mozconfig is exempt and
+  documents why (it reuses Mozilla's prebuilt internals and must never be released).
+- **Options considered:** Runtime-only via AutoConfig (the original Phase 1
+  posture); compile-time only; both.
+- **Rationale:** Invariant 1 was enforced only at the pref layer; a single
+  `openbook.cfg` regression (a `lockPref` downgraded to `defaultPref`, or a
+  dropped key) would silently reintroduce telemetry while passing the structure
+  tests. Compiling the code paths out removes that regression class. Complements
+  ADR-0018 (in-app updater off; updates via signed package channels). (Renumbered
+  from PR #4's ADR-0008.)
+
+## ADR-0021 — Hardening baseline: LibreWolf-equivalent (with OpenBook deviations)
+
+- **Date:** 2026-06-09
+- **Decision:** Adopt the LibreWolf-equivalent superset for the additive prefs
+  `openbook.cfg` did not already cover (DNS prefetch/predictor/speculative connect
+  off, link pings off, IDN punycode on, EME/Widevine off by default, system-addon
+  and addon-recommendation surfaces off, formless capture off, battery API and
+  PDF.js scripting off, AI/ML provider endpoints blanked) — see `openbook.cfg` §13.
+  Two deliberate DEVIATIONS from stock LibreWolf: (1) Safe Browsing is KEPT
+  ENABLED by default (openbook.cfg §4) — malware/phishing protection is a net
+  user-safety win and Firefox's hash-list implementation is privacy-preserving;
+  (2) `privacy.resistFingerprinting` ships ON by default but unlocked (ADR-0014),
+  rather than LibreWolf's RFP posture.
+- **Options considered:** LibreWolf-equivalent verbatim (incl. SafeBrowsing off);
+  LibreWolf + Tor-style extras (RFP locked, FPI); the hybrid adopted here
+  (LibreWolf baseline + SafeBrowsing kept + RFP-on-unlocked).
+- **Rationale:** LibreWolf is the closest functional reference and ships a
+  profile with known site-compatibility properties, but disabling Safe Browsing
+  trades real-world malware protection for avoiding a hashed-list update that
+  carries no browsing history — a trade OpenBook does not accept for its default
+  users. RFP/FPI strictness is deferred to a future Mullvad/Tor-style profile.
+  (Renumbered from PR #4's ADR-0009, which collided with the existing ADR-0009;
+  reconciled with the merged §4 SafeBrowsing and ADR-0014 RFP decisions.)
