@@ -10,6 +10,7 @@ is orchestrated by scripts/CI — not run inline. For frontend-only iteration us
 ```bash
 # Repo structure + shell syntax
 python3 tests/phase0/test_phase0_structure.py
+python3 tests/phase1/test_phase1_config.py
 find build/scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
 # Phase 1 — privacy hardening assertions

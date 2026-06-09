@@ -1,0 +1,132 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableFirefoxAccounts": false,
+    "DisableFormHistory": false,
+    "DisableFirefoxScreenshots": false,
+    "DisableDefaultBrowserAgent": true,
+    "DontCheckDefaultBrowser": true,
+    "DisableAppUpdate": false,
+    "DisableSetDesktopBackground": false,
+    "DisableProfileImport": false,
+    "DisableMasterPasswordCreation": false,
+    "NoDefaultBookmarks": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "PromptForDownloadLocation": true,
+    "NetworkPrediction": false,
+    "CaptivePortal": false,
+    "DisablePasswordReveal": false,
+    "Cookies": {
+      "Behavior": "reject-tracker-and-partition-foreign",
+      "Locked": false
+    },
+    "EnableTrackingProtection": {
+      "Value": true,
+      "Cryptomining": true,
+      "Fingerprinting": true,
+      "Locked": false
+    },
+    "FirefoxHome": {
+      "Search": true,
+      "TopSites": true,
+      "SponsoredTopSites": false,
+      "Highlights": false,
+      "Pocket": false,
+      "SponsoredPocket": false,
+      "Snippets": false,
+      "Locked": false
+    },
+    "UserMessaging": {
+      "ExtensionRecommendations": false,
+      "FeatureRecommendations": false,
+      "UrlbarInterventions": false,
+      "SkipOnboarding": true,
+      "MoreFromMozilla": false,
+      "WhatsNew": false,
+      "Locked": true
+    },
+    "FirefoxSuggest": {
+      "WebSuggestions": false,
+      "SponsoredSuggestions": false,
+      "ImproveSuggest": false,
+      "Locked": false
+    },
+    "SearchSuggestEnabled": false,
+    "SearchEngines": {
+      "Default": "DuckDuckGo",
+      "PreventInstalls": false
+    },
+    "DNSOverHTTPS": {
+      "Enabled": true,
+      "ProviderURL": "https://dns.quad9.net/dns-query",
+      "Locked": false,
+      "Fallback": true
+    },
+    "ExtensionSettings": {
+      "*": {
+        "installation_mode": "allowed",
+        "blocked_install_message": "Install only extensions you trust. OpenBook ships its privacy, vault, and AI extensions first-party.",
+        "allowed_types": ["extension", "theme", "dictionary", "locale"]
+      },
+      "vault-ui@openbook.browser": {
+        "installation_mode": "allowed"
+      },
+      "proxy-manager@openbook.browser": {
+        "installation_mode": "allowed"
+      },
+      "ai-sidebar@openbook.browser": {
+        "installation_mode": "allowed"
+      }
+    },
+    "Permissions": {
+      "Camera": {
+        "BlockNewRequests": false,
+        "Locked": false
+      },
+      "Microphone": {
+        "BlockNewRequests": false,
+        "Locked": false
+      },
+      "Location": {
+        "BlockNewRequests": true,
+        "Locked": false
+      },
+      "Notifications": {
+        "BlockNewRequests": false,
+        "Locked": false
+      },
+      "Autoplay": {
+        "Default": "block-audio-video",
+        "Locked": false
+      }
+    },
+    "PopupBlocking": {
+      "Default": true,
+      "Locked": false
+    },
+    "Homepage": {
+      "URL": "about:home",
+      "Locked": false,
+      "StartPage": "homepage"
+    },
+    "EncryptedMediaExtensions": {
+      "Enabled": true,
+      "Locked": false
+    },
+    "PasswordManagerEnabled": true,
+    "OfferToSaveLogins": true,
+    "SanitizeOnShutdown": {
+      "Cache": false,
+      "Cookies": false,
+      "History": false,
+      "Sessions": false,
+      "FormData": true,
+      "Downloads": false,
+      "SiteSettings": false,
+      "Locked": false
+    }
+  }
+}

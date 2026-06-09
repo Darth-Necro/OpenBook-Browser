@@ -100,3 +100,19 @@
 - **Decision:** Ship `privacy.resistFingerprinting` enabled via `defaultPref` (not `lockPref`), letting users opt out.
 - **Options considered:** Lock it on; ship on but unlocked; leave it off.
 - **Rationale:** RFP is a strong anti-fingerprinting control but imposes real UX costs (timezone, letterboxing, canvas prompts). Locking it would trap users who hit breakage; shipping it on-by-default-but-changeable preserves the privacy posture while respecting user control. Telemetry/Normandy/data-reporting prefs remain `lockPref` because there is no legitimate reason to re-enable them.
+
+## ADR-0015 — Phase 1 preference hardening mechanism (carried from PR #2)
+
+- **Date:** 2026-06-08
+- **Decision:** Use Firefox AutoConfig (`defaults/pref/autoconfig.js` + `openbook.cfg`) for locked preferences, supplemented by Mozilla enterprise policies (`distribution/policies.json`).
+- **Options considered:** AutoConfig only; enterprise policies only; `user.js` (erased on profile reset); compiled-in pref defaults.
+- **Rationale:** AutoConfig's `lockPref()` prevents user override without UI changes; enterprise policies add a JSON audit trail and OS-management integration. Both are supported in unmodified Firefox stable. Compiled-in defaults require source patches and raise maintenance burden; a `user.js` offers no protection against modification.
+- **Constraint:** `openbook.cfg` is privileged and must be root-owned, not user-writable, in releases (invariant 6).
+
+## ADR-0016 — Phase 1 branding mechanism (carried from PR #2)
+
+- **Date:** 2026-06-08
+- **Decision:** Add `browser/branding/openbook/` via an ordered patch and select it with `--with-branding=browser/branding/openbook` in every per-platform mozconfig; binary brand assets live in `branding/` and are staged into the source tree by `build.sh` before the build.
+- **Options considered:** Modify `browser/branding/official/` in place; add a separate brand directory; AutoConfig display strings only.
+- **Rationale:** A separate branding directory isolates OpenBook identity from upstream and minimises rebase churn; mozconfig selection keeps the Firefox build system authoritative.
+- **Note:** Supersedes the earlier `moz.configure`-default branding patch (removed in the PR #2 ↔ #3 merge) in favour of explicit mozconfig selection plus `build.sh` asset staging.

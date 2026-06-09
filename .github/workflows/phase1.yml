@@ -1,0 +1,88 @@
+name: "Phase 1 — Branding and Config"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_full_firefox_build:
+        description: "Set to 'true' to execute a full Firefox build"
+        required: false
+        default: "false"
+
+jobs:
+  config-checks:
+    name: "Phase 1 config checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Phase 1 structure validation"
+        run: python3 tests/phase1/test_phase1_config.py
+
+      - name: "Validate policies.json syntax"
+        run: python3 -c "import json,sys; json.load(open('config/distribution/policies.json'))"
+
+      - name: "openbook.cfg must start with a comment line"
+        run: |
+          head -1 config/autoconfig/openbook.cfg | grep -qE '^//'
+
+      - name: "autoconfig.js must reference openbook.cfg"
+        run: |
+          grep -q 'openbook\.cfg' config/autoconfig/autoconfig.js
+
+      - name: "install-config.sh must be executable and pass bash -n"
+        run: |
+          test -x build/scripts/install-config.sh
+          bash -n build/scripts/install-config.sh
+
+  build-path:
+    name: "Phase 1 full Firefox build (${{ matrix.target }})"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_full_firefox_build == 'true' }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-latest
+          - target: win-x64
+            runner: windows-latest
+          - target: macos-universal
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Materialize Mozilla release signing keyring"
+        shell: bash
+        env:
+          MOZILLA_RELEASE_KEYRING_B64: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_B64 }}
+        run: |
+          # A path-valued secret does not point at a real file on a hosted runner,
+          # so decode a base64-encoded keyring secret into $RUNNER_TEMP and export
+          # the real path. Fail closed if it is unset.
+          if [[ -z "${MOZILLA_RELEASE_KEYRING_B64:-}" ]]; then
+            echo "::error::Set OPENBOOK_UPSTREAM_GPG_KEYRING_B64 (base64 of the Mozilla release signing keyring) before running the full build."
+            exit 1
+          fi
+          keyring="$RUNNER_TEMP/mozilla-release-signing.gpg"
+          printf '%s' "$MOZILLA_RELEASE_KEYRING_B64" | base64 -d > "$keyring"
+          echo "OPENBOOK_UPSTREAM_GPG_KEYRING=$keyring" >> "$GITHUB_ENV"
+
+      - name: "Fetch and verify upstream Firefox source"
+        shell: bash
+        run: |
+          build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
+
+      - name: "Apply patches"
+        shell: bash
+        run: |
+          build/scripts/apply-patches.sh \
+            --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+
+      - name: "Build ${{ matrix.target }}"
+        shell: bash
+        run: |
+          build/scripts/build.sh \
+            --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2" \
+            --target "${{ matrix.target }}"
