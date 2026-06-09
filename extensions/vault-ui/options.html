@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Vault — Options</title>
+    <link rel="stylesheet" href="vault.css" />
+  </head>
+  <body>
+    <main>
+      <h1>OpenBook Vault</h1>
+
+      <h2>Status</h2>
+      <dl class="status-grid">
+        <dt>State</dt>
+        <dd id="state-value">…</dd>
+        <dt>Protection</dt>
+        <dd id="hardware-value">…</dd>
+        <dt>Attempts</dt>
+        <dd id="attempts-value">…</dd>
+      </dl>
+      <div id="software-warning" class="banner banner-warn" hidden>
+        Software-only mode: weaker guarantee. The attempt counter is advisory
+        against an attacker who images the disk; rely on a strong passphrase.
+      </div>
+
+      <h2>Lock</h2>
+      <button id="lock-now">Lock now</button>
+
+      <h2>Auto-lock on idle</h2>
+      <label for="idle-seconds">Idle seconds before auto-lock (min 30)</label>
+      <input id="idle-seconds" type="number" min="30" step="10" value="300" />
+      <button id="save-idle">Save</button>
+      <p id="idle-message" class="message" aria-live="polite"></p>
+
+      <h2>Erase vault (irreversible)</h2>
+      <fieldset id="erase-fieldset">
+        <legend>Cryptographic erasure</legend>
+        <p class="banner banner-crit">
+          Erasing invalidates the encryption key. Profile data becomes
+          permanently unrecoverable. This is the same destruction triggered by
+          exhausting unlock attempts. There is no undo.
+        </p>
+        <label for="erase-token">Confirmation</label>
+        <input id="erase-token" type="text" autocomplete="off" />
+        <p id="erase-token-hint" class="muted"></p>
+        <div class="check">
+          <input id="erase-confirm" type="checkbox" />
+          <label for="erase-confirm"
+            >I understand this permanently destroys the profile data.</label
+          >
+        </div>
+        <button id="erase-now" class="danger" disabled>Erase now</button>
+      </fieldset>
+
+      <p id="action-message" class="message" role="alert" aria-live="polite"></p>
+    </main>
+    <script type="module" src="dist/options.js"></script>
+  </body>
+</html>

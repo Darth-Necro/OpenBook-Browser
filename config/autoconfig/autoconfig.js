@@ -1,4 +1,4 @@
-// AutoConfig loader — copied to defaults/pref/ at install time.
-// Tells Firefox where to find the locked config file and disables obfuscation.
+// SPDX-License-Identifier: MPL-2.0
 pref("general.config.filename", "openbook.cfg");
 pref("general.config.obscure_value", 0);
+pref("general.config.sandbox_enabled", false);

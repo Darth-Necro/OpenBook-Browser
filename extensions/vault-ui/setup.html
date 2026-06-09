@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Vault — Setup</title>
+    <link rel="stylesheet" href="vault.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Set up the OpenBook Vault</h1>
+      <p>
+        The vault encrypts your profile at rest. Unlocking requires your
+        passphrase. After too many failed attempts the encryption key is
+        <strong>cryptographically erased</strong> and the data becomes
+        permanently unrecoverable.
+      </p>
+
+      <dl class="status-grid" aria-label="Hardware backing">
+        <dt>Protection</dt>
+        <dd id="hardware-label">Detecting…</dd>
+      </dl>
+
+      <div id="software-warning" class="banner banner-warn" hidden>
+        No TPM 2.0 or Secure Enclave was detected. In software-only mode the
+        attempt limit is <em>advisory</em> against an attacker who images the
+        disk, and protection rests entirely on passphrase strength
+        (Argon2id). The guarantee is weaker than with hardware enforcement.
+      </div>
+
+      <p id="already" class="banner banner-warn" hidden></p>
+
+      <form id="form" autocomplete="off">
+        <label for="secret">Passphrase</label>
+        <input
+          id="secret"
+          type="password"
+          autocomplete="new-password"
+          aria-describedby="software-strength-hint"
+        />
+        <p id="software-strength-hint" class="muted" hidden>
+          Use at least 12 characters with letters and symbols (not an all-digit
+          PIN).
+        </p>
+
+        <label for="confirm">Confirm passphrase</label>
+        <input id="confirm" type="password" autocomplete="new-password" />
+
+        <div class="check">
+          <input id="ack" type="checkbox" />
+          <label for="ack"
+            >I understand this data is unrecoverable. If I forget my passphrase
+            or trigger erasure, it cannot be restored.</label
+          >
+        </div>
+
+        <p id="validation" class="message" role="alert" aria-live="polite"></p>
+        <button id="submit" type="submit" disabled>Enable vault</button>
+        <p id="status-line" class="message" aria-live="polite" hidden></p>
+      </form>
+
+      <p id="done" class="banner banner-warn" hidden>
+        The vault is enabled and locked. You will be asked for your passphrase
+        to unlock the profile.
+      </p>
+    </main>
+    <script type="module" src="dist/setup.js"></script>
+  </body>
+</html>

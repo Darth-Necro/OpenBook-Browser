@@ -1,0 +1,30 @@
+{
+  "_comment": "SPDX-License-Identifier: MPL-2.0. Manifest of OpenBook branding assets. The SVGs in this directory are the canonical sources; the raster outputs below are generated at build time by the branding patch / packaging step (see branding/README.md). All artwork is original OpenBook work and contains no Firefox/Mozilla trademark (docs/OpenBook-Browser-Build-Plan.md section 13).",
+  "product": "OpenBook",
+  "vendor": "OpenBook",
+  "sources": {
+    "icon.svg": "Master application icon (open-book glyph on rounded tile). Source for every raster app icon.",
+    "about-logo.svg": "Wordmark + glyph shown on about: surfaces and the About dialog (about:logo).",
+    "default-favicon.svg": "Fallback favicon for pages/about: pages with no icon; simplified for 16px legibility."
+  },
+  "generated_rasters": {
+    "from_icon_svg": {
+      "default16.png": [16, 16],
+      "default32.png": [32, 32],
+      "default48.png": [48, 48],
+      "default64.png": [64, 64],
+      "default128.png": [128, 128],
+      "default256.png": [256, 256],
+      "firefox.ico": "Windows multi-resolution icon containing 16/24/32/48/64/128/256 (named firefox.ico because upstream packaging expects that path; contents are OpenBook art).",
+      "firefox.icns": "macOS iconset (16..1024 @1x/@2x) packed to .icns (path name retained for upstream packaging; OpenBook art).",
+      "content/icon64.png": [64, 64],
+      "mozicon128.png": [128, 128]
+    },
+    "from_about_logo_svg": {
+      "about-logo.png": [192, 64],
+      "about-logo@2x.png": [384, 128]
+    },
+    "notes": "Raster names mirror the upstream browser/branding/<channel>/ layout so the branding patch maps 1:1. Retaining upstream FILE names (e.g. firefox.ico) is required by packaging code paths; the IMAGE CONTENT is 100% OpenBook and carries no Mozilla mark."
+  },
+  "generation": "Rasters are produced from the SVGs via a deterministic converter (e.g. rsvg-convert / resvg) during the build so the repo stays text-only and reviewable. Command examples are in branding/README.md."
+}

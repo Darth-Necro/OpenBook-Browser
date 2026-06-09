@@ -1,0 +1,82 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* OpenBook Assistant — sidebar + settings styling. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --fg: #1a1a1a;
+  --muted: #5a5a5a;
+  --accent: #1d6fd1;
+  --border: #d4d4d4;
+  --warn-bg: #fff4e5;
+  --warn-fg: #7a4b00;
+  --ok-bg: #e7f5ec;
+  --ok-fg: #1a7f37;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1b22;
+    --fg: #f0f0f4;
+    --muted: #b0b0b8;
+    --accent: #6aa6f0;
+    --border: #44444c;
+    --warn-bg: #3a2c12;
+    --warn-fg: #ffce8c;
+    --ok-bg: #14331f;
+    --ok-fg: #3fb950;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  padding: 0.9rem;
+}
+h1 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+h2 { font-size: 0.95rem; margin: 1rem 0 0.4rem; }
+p { color: var(--muted); line-height: 1.4; font-size: 0.88rem; }
+label { display: block; font-weight: 600; margin: 0.6rem 0 0.2rem; font-size: 0.85rem; }
+textarea, input, select {
+  width: 100%;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+textarea { resize: vertical; min-height: 3rem; }
+button {
+  padding: 0.5rem 0.9rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--accent); }
+.check { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.6rem 0; }
+.check input { width: auto; margin-top: 0.15rem; }
+.check label { font-weight: 400; margin: 0; }
+.banner { border-radius: 6px; padding: 0.55rem 0.75rem; font-size: 0.85rem; margin: 0.6rem 0; }
+.banner-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.banner-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.muted { color: var(--muted); font-size: 0.8rem; }
+.output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  min-height: 4rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
+.status { font-size: 0.82rem; color: var(--muted); min-height: 1rem; margin-top: 0.4rem; }
+.active-line { font-weight: 600; font-size: 0.85rem; margin: 0.5rem 0; }
+[hidden] { display: none !important; }

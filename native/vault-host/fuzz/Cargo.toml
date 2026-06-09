@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# cargo-fuzz harness for the OpenBook vault host frame parser (Build Plan §5.4:
+# "fuzz the native-messaging JSON parser").
+#
+# This is a SEPARATE crate from the host. It is intentionally NOT part of the
+# host's build/test: `cargo build`/`cargo test --manifest-path
+# native/vault-host/Cargo.toml` never touches it. It is built and run only via
+# `cargo fuzz`, which requires the nightly toolchain + libFuzzer:
+#
+#     cargo install cargo-fuzz
+#     cd native/vault-host
+#     cargo +nightly fuzz run parse_frame
+#
+# cargo-fuzz is NOT installed in the default CI image here; this directory exists
+# so a fuzzing CI job (or a developer) can run it. The empty `[workspace]` table
+# makes this its own workspace root so it never gets pulled into a parent build.
+
+[package]
+name = "openbook-vault-host-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MPL-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Own workspace root: keep this crate out of any parent/host build graph.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+# Used by the `dispatch` target to give the engine a throwaway vault directory.
+tempfile = "3"
+
+[dependencies.openbook-vault-host]
+path = ".."
+
+# libFuzzer targets must not unwind across the FFI boundary; abort on panic. A
+# panic here is a genuine finding (the parser is contractually panic-free).
+[profile.release]
+panic = "abort"
+debug = true
+
+[[bin]]
+name = "parse_frame"
+path = "fuzz_targets/parse_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dispatch"
+path = "fuzz_targets/dispatch.rs"
+test = false
+doc = false
+bench = false

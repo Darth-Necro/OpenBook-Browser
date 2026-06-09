@@ -1,0 +1,42 @@
+From 1a0002000000000000000000000000000000ob02 Mon Sep 17 00:00:00 2001
+From: OpenBook Maintainers <goodhackersolutions@gmail.com>
+Date: Sun, 8 Jun 2026 00:00:01 +0000
+Subject: [PATCH 2/6] branding: neutralize default bookmarks and start content
+
+SPDX-License-Identifier: MPL-2.0
+
+Remove the Firefox-branded default bookmarks (links to Mozilla properties:
+mozilla.org, support.mozilla.org, addons.mozilla.org, etc.) and neutralize the
+default start/onboarding content so a fresh OpenBook profile ships with no
+Mozilla-branded bookmarks and no marketing links.
+
+This complements:
+  - config/policies/policies.json  -> "NoDefaultBookmarks": true
+  - config/autoconfig/openbook.cfg -> onboarding/welcome disabled
+The patch removes the *content* so even if a code path ignores the policy there
+is nothing Firefox-branded to import. (docs/OpenBook-Browser-Build-Plan.md §13.)
+
+NOTE: exact hunk context is rebased in CI against Firefox 145.0.2.
+---
+ browser/locales/generic/profile/bookmarks.inc.html | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/browser/locales/generic/profile/bookmarks.inc.html b/browser/locales/generic/profile/bookmarks.inc.html
+index 3333333..4444444 100644
+--- a/browser/locales/generic/profile/bookmarks.inc.html
++++ b/browser/locales/generic/profile/bookmarks.inc.html
+@@ -1,10 +1,4 @@
+ <!-- This Source Code Form is subject to the terms of the Mozilla Public
+    - License, v. 2.0. -->
+-    <DT><H3 PERSONAL_TOOLBAR_FOLDER="true">@bookmarks_toolbarfolder@</H3>
+-    <DL><p>
+-        <DT><A HREF="https://www.mozilla.org/about/">@getting_started@</A>
+-        <DT><A HREF="https://www.mozilla.org/firefox/help/">@firefox_help@</A>
+-        <DT><A HREF="https://www.mozilla.org/firefox/customize/">@firefox_customize@</A>
+-        <DT><A HREF="https://www.mozilla.org/contribute/">@firefox_community@</A>
+-        <DT><A HREF="https://www.mozilla.org/about/">@about_mozilla@</A>
+-    </DL><p>
++    <!-- OpenBook ships NO default bookmarks (docs §13); see policies.json
++       - "NoDefaultBookmarks": true. The profile starts with an empty toolbar. -->
+--
+2.45.0

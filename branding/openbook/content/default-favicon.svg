@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!--
+  Default favicon used for pages that supply none, and for internal about: pages.
+  Simplified single-color open book so it stays legible at 16px. Original
+  artwork; not derived from any Firefox/Mozilla mark (§13).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="OpenBook">
+  <rect x="15" y="6" width="2" height="20" rx="1" fill="#1b3a8c"/>
+  <path d="M16 8 C 11 5, 5 5, 2 7 L 2 24 C 5 22, 11 22, 16 25 Z"
+        fill="#ffffff" stroke="#1b3a8c" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M16 8 C 21 5, 27 5, 30 7 L 30 24 C 27 22, 21 22, 16 25 Z"
+        fill="#dfe6ef" stroke="#1b3a8c" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

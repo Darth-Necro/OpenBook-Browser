@@ -1,4 +1,8 @@
-# Phase 0 artifact build configuration for frontend-only iteration.
+# OpenBook artifact build configuration for frontend-only iteration.
+# Artifact builds download prebuilt internals and skip the C++ compile; branding
+# is a frontend concern, so OpenBook branding is still selected here so artifact
+# iteration exercises the real OpenBook chrome.
 ac_add_options --enable-application=browser
 ac_add_options --enable-artifact-builds
+ac_add_options --with-branding=browser/branding/openbook
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-artifact

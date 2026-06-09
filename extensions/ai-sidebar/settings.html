@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Assistant — Settings</title>
+    <link rel="stylesheet" href="sidebar.css" />
+  </head>
+  <body>
+    <h1>OpenBook Assistant settings</h1>
+    <p>
+      The assistant is <strong>off by default</strong>. No provider is
+      configured, no network requests are made, and no telemetry is collected
+      until you enable it here. The assistant is read-only and never takes
+      actions without a separate per-action confirmation.
+    </p>
+
+    <p id="active-line" class="active-line"></p>
+
+    <div class="check">
+      <input id="enabled" type="checkbox" />
+      <label for="enabled">Enable the assistant</label>
+    </div>
+
+    <label for="provider">Provider</label>
+    <select id="provider">
+      <option value="">— none —</option>
+      <option value="ollama">Local model (Ollama, localhost — nothing leaves your device)</option>
+      <option value="byok">Bring your own API key (OpenAI-compatible, remote)</option>
+    </select>
+
+    <p id="local-note" class="banner banner-ok" hidden>
+      Local provider: requests go only to your Ollama daemon on this machine.
+      Nothing is sent to any third party.
+    </p>
+
+    <label for="model">Model</label>
+    <input id="model" type="text" placeholder="e.g. llama3.1 or gpt-4o-mini" />
+
+    <div id="byok-fields" hidden>
+      <label for="base-url">Base URL</label>
+      <input id="base-url" type="text" placeholder="https://api.example.com/v1" />
+      <label for="api-key">API key</label>
+      <input id="api-key" type="password" autocomplete="off" />
+    </div>
+
+    <div id="egress-warning" class="banner banner-warn" hidden>
+      <strong>Data egress:</strong> with a bring-your-own-key provider, your
+      question and any page/selection context you include are sent to the
+      endpoint you configured, under that operator's terms. OpenBook ships no
+      key and no provider; this leaves your device.
+      <div class="check">
+        <input id="ack-egress" type="checkbox" />
+        <label for="ack-egress"
+          >I understand my data will be sent to this remote endpoint.</label
+        >
+      </div>
+    </div>
+
+    <button id="save">Save</button>
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <script type="module" src="dist/settings.js"></script>
+  </body>
+</html>

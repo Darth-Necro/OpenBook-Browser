@@ -1,0 +1,105 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* OpenBook Vault — shared styling for setup / lock / options pages. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555;
+  --accent: #1d6fd1;
+  --warn-bg: #fff4e5;
+  --warn-fg: #7a4b00;
+  --crit-bg: #fdecea;
+  --crit-fg: #8a1c12;
+  --border: #d4d4d4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1b22;
+    --fg: #f0f0f4;
+    --muted: #b0b0b8;
+    --accent: #6aa6f0;
+    --warn-bg: #3a2c12;
+    --warn-fg: #ffce8c;
+    --crit-bg: #3a1714;
+    --crit-fg: #ff9c8f;
+    --border: #44444c;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  padding: 1.5rem;
+  max-width: 40rem;
+}
+
+h1 { font-size: 1.3rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; }
+p { color: var(--muted); line-height: 1.45; }
+
+label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+
+input[type="password"],
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  padding: 0.55rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+button {
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.danger { background: #b3261e; border-color: #b3261e; }
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem 1rem;
+}
+fieldset:disabled { opacity: 0.55; }
+legend { font-weight: 700; padding: 0 0.4rem; }
+
+.check { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.75rem 0; }
+.check input { margin-top: 0.2rem; }
+.check label { font-weight: 400; margin: 0; }
+
+.banner {
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.75rem 0;
+  font-size: 0.92rem;
+}
+.banner-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.banner-crit { background: var(--crit-bg); color: var(--crit-fg); font-weight: 600; }
+
+.attempts { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: 6px; }
+.attempts-none { color: var(--muted); }
+.attempts-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.attempts-critical { background: var(--crit-bg); color: var(--crit-fg); font-weight: 700; }
+
+.status-grid { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+.status-grid dt { font-weight: 600; }
+.status-grid dd { margin: 0; color: var(--muted); }
+
+.muted { color: var(--muted); font-size: 0.85rem; }
+.message { min-height: 1.2rem; margin: 0.5rem 0; }
+[hidden] { display: none !important; }

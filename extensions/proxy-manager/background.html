@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!-- Persistent background page. Loads the background script as an ES module so
+     its imports resolve in the browser. The blocking webRequest listener (the
+     fail-closed kill-switch) is registered from here at startup. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OpenBook Proxy background</title>
+  </head>
+  <body>
+    <script type="module" src="dist/background.js"></script>
+  </body>
+</html>

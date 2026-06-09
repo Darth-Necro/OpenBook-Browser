@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "OpenBook Vault",
+  "short_name": "Vault",
+  "version": "0.1.0",
+  "description": "Cryptographic lockout for the OpenBook profile: setup, lock screen, and erasure controls backed by the org.openbook.vault_host native host.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vault-ui@openbook.browser",
+      "strict_min_version": "145.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "OpenBook Vault",
+    "default_popup": "options.html"
+  }
+}

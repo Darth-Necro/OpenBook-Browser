@@ -22,9 +22,19 @@ Environment:
 USAGE
 }
 
+require_value() {
+  # require_value FLAG REMAINING NEXT — fail with usage if no value follows FLAG.
+  if [[ "$2" -lt 2 || "${3:-}" == --* ]]; then
+    echo "Option $1 requires a value." >&2
+    usage >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest)
+      require_value "$1" "$#" "${2:-}"
       DEST_DIR="$2"
       shift 2
       ;;

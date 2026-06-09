@@ -1,0 +1,75 @@
+name: OpenBook CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-gates:
+    name: Privacy / leak / repro gates (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Repo structure
+        run: python3 tests/phase0/test_phase0_structure.py
+      - name: Privacy-regression suite (telemetry-off, RFP, DoH, no enabled telemetry endpoints)
+        run: |
+          for t in tests/privacy-regression/test_*.py; do
+            echo "== $t"; python3 "$t"
+          done
+      - name: Leak gates (fail-closed simulation + four-control assertions)
+        run: |
+          python3 tests/leak/failclosed_sim.py
+          python3 tests/leak/leak_assertions.py
+      - name: Reproducible-build diff self-test
+        run: python3 tests/repro/test_repro_diff.py
+      - name: Shell syntax (build + ci scripts)
+        run: |
+          find build/scripts ci -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+  native-tests:
+    name: Native hosts (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: vault-host — test + clippy (default features; TPM/Secure-Enclave gated off)
+        run: |
+          cargo test   --locked --manifest-path native/vault-host/Cargo.toml
+          cargo clippy --locked --manifest-path native/vault-host/Cargo.toml --all-targets -- -D warnings
+      - name: vpn-helper — test + clippy
+        run: |
+          cargo test   --locked --manifest-path native/vpn-helper/Cargo.toml
+          cargo clippy --locked --manifest-path native/vpn-helper/Cargo.toml --all-targets -- -D warnings
+
+  extension-tests:
+    name: Extension (${{ matrix.ext }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ext: [vault-ui, proxy-manager, ai-sidebar]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install, type-check build, and test
+        working-directory: extensions/${{ matrix.ext }}
+        run: |
+          npm ci
+          npm run build
+          npm test

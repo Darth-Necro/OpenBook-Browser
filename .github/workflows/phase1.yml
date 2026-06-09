@@ -53,19 +53,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Fetch and verify upstream Firefox source"
+      - name: "Materialize Mozilla release signing keyring"
+        shell: bash
         env:
-          OPENBOOK_UPSTREAM_GPG_KEYRING: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_PATH }}
+          MOZILLA_RELEASE_KEYRING_B64: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_B64 }}
         run: |
-          build/scripts/fetch-verify-upstream.sh --dest /tmp/openbook-upstream
+          # A path-valued secret does not point at a real file on a hosted runner,
+          # so decode a base64-encoded keyring secret into $RUNNER_TEMP and export
+          # the real path. Fail closed if it is unset.
+          if [[ -z "${MOZILLA_RELEASE_KEYRING_B64:-}" ]]; then
+            echo "::error::Set OPENBOOK_UPSTREAM_GPG_KEYRING_B64 (base64 of the Mozilla release signing keyring) before running the full build."
+            exit 1
+          fi
+          keyring="$RUNNER_TEMP/mozilla-release-signing.gpg"
+          printf '%s' "$MOZILLA_RELEASE_KEYRING_B64" | base64 -d > "$keyring"
+          echo "OPENBOOK_UPSTREAM_GPG_KEYRING=$keyring" >> "$GITHUB_ENV"
+
+      - name: "Fetch and verify upstream Firefox source"
+        shell: bash
+        run: |
+          build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
 
       - name: "Apply patches"
+        shell: bash
         run: |
           build/scripts/apply-patches.sh \
-            --source /tmp/openbook-upstream/firefox-145.0.2
+            --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
 
       - name: "Build ${{ matrix.target }}"
+        shell: bash
         run: |
           build/scripts/build.sh \
-            --source /tmp/openbook-upstream/firefox-145.0.2 \
-            --target ${{ matrix.target }}
+            --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2" \
+            --target "${{ matrix.target }}"

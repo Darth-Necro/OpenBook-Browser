@@ -1,0 +1,7 @@
+{
+  "name": "org.openbook.vault_host",
+  "description": "OpenBook Browser cryptographic-lockout native messaging host (data-at-rest protection).",
+  "path": "<INSTALL_PREFIX>/lib/openbook/openbook-vault-host",
+  "type": "stdio",
+  "allowed_extensions": ["vault-ui@openbook.browser"]
+}

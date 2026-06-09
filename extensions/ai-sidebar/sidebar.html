@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBook Assistant</title>
+    <link rel="stylesheet" href="sidebar.css" />
+  </head>
+  <body>
+    <h1>OpenBook Assistant</h1>
+
+    <section id="disabled-notice" class="banner banner-warn">
+      <p>
+        The assistant is <strong>off</strong>. No AI provider is configured, and
+        no network calls or telemetry occur until you explicitly enable it.
+      </p>
+      <button id="open-settings" class="secondary">Open settings to enable</button>
+    </section>
+
+    <section id="composer" hidden>
+      <p id="provider-label" class="active-line"></p>
+
+      <label for="question">Your question</label>
+      <textarea id="question" rows="3" placeholder="Ask about the page…"></textarea>
+
+      <label for="context">Page / selection context (optional, untrusted)</label>
+      <textarea
+        id="context"
+        rows="5"
+        placeholder="Paste page text or a selection here. It is sent as UNTRUSTED data, never as instructions."
+      ></textarea>
+      <p class="muted">
+        Read-only: the assistant analyzes text. It never takes actions without a
+        separate per-action confirmation, and its replies are shown as text, not
+        executed.
+      </p>
+
+      <button id="ask">Ask</button>
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <h2>Response</h2>
+      <div id="output" class="output" aria-live="polite"></div>
+    </section>
+
+    <script type="module" src="dist/sidebar.js"></script>
+  </body>
+</html>

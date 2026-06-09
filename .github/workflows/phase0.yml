@@ -40,12 +40,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Explain signing-key prerequisite
-        run: echo "Provide OPENBOOK_UPSTREAM_GPG_KEYRING through runner setup before enabling fetch/build."
-      - name: Fetch, verify, and build unmodified Firefox
+      - name: Materialize Mozilla release signing keyring
         shell: bash
         env:
-          OPENBOOK_UPSTREAM_GPG_KEYRING: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_PATH }}
+          MOZILLA_RELEASE_KEYRING_B64: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_B64 }}
+        run: |
+          # fetch-verify-upstream.sh requires OPENBOOK_UPSTREAM_GPG_KEYRING to point
+          # at a readable keyring FILE. A secret holding a path would not correspond
+          # to a real file on a hosted runner, so decode a base64-encoded keyring
+          # secret into $RUNNER_TEMP and export the real path. Fail closed if unset.
+          if [[ -z "${MOZILLA_RELEASE_KEYRING_B64:-}" ]]; then
+            echo "::error::Set the OPENBOOK_UPSTREAM_GPG_KEYRING_B64 secret (base64 of the Mozilla release signing keyring) before running the full build."
+            exit 1
+          fi
+          keyring="$RUNNER_TEMP/mozilla-release-signing.gpg"
+          printf '%s' "$MOZILLA_RELEASE_KEYRING_B64" | base64 -d > "$keyring"
+          echo "OPENBOOK_UPSTREAM_GPG_KEYRING=$keyring" >> "$GITHUB_ENV"
+      - name: Fetch, verify, and build unmodified Firefox
+        shell: bash
         run: |
           build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
           build/scripts/apply-patches.sh --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
