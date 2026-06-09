@@ -15,12 +15,16 @@ on:
         required: false
         default: "false"
 
+permissions:
+  contents: read
+
 jobs:
   config-checks:
     name: "Phase 1 config checks"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@v4.2.2 — pin to commit SHA for supply-chain hardening.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: "Phase 1 structure validation"
         run: python3 tests/phase1/test_phase1_config.py
@@ -41,6 +45,12 @@ jobs:
           test -x build/scripts/install-config.sh
           bash -n build/scripts/install-config.sh
 
+      - name: "First-run egress test scaffold parses and skips cleanly"
+        run: |
+          rc=0
+          OPENBOOK_BIN= python3 tests/leak/test_first_run_egress.py || rc=$?
+          [ "$rc" -eq 77 ] || { echo "expected SKIP exit 77, got $rc"; exit 1; }
+
   # Catches a stale patch series (the most common fork breakage) in minutes
   # without paying for a build: fetch + verify the pinned tarball, then run
   # apply-patches.sh, which fails hard on the first conflict. Run this after
@@ -50,7 +60,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_patch_apply_smoke == 'true' || inputs.run_full_firefox_build == 'true') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: "Materialize Mozilla release signing keyring"
         shell: bash
         env:
@@ -74,6 +84,7 @@ jobs:
 
   build-path:
     name: "Phase 1 full Firefox build (${{ matrix.target }})"
+    needs: config-checks
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_full_firefox_build == 'true' }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -86,7 +97,7 @@ jobs:
           - target: macos-universal
             runner: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: "Materialize Mozilla release signing keyring"
         shell: bash
@@ -114,6 +125,12 @@ jobs:
         run: |
           build/scripts/apply-patches.sh \
             --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+
+      - name: "Bootstrap Firefox toolchain"
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+          ./mach --no-interactive bootstrap --application-choice browser
 
       - name: "Build ${{ matrix.target }}"
         shell: bash
