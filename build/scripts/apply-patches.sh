@@ -2,13 +2,22 @@
 set -euo pipefail
 
 SOURCE_DIR=""
-PATCH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/patches"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PATCH_ROOT="${REPO_ROOT}/patches"
+BRANDING_TREE="${REPO_ROOT}/branding/openbook"
 
 usage() {
   cat <<USAGE
 Usage: $0 --source DIR [--patch-root DIR]
 
-Applies ordered patches from branding, privacy, and features subdirectories.
+Applies the ordered patch series declared in patches/SERIES when present
+(one path per line, relative to patches/; '#' comments and blank lines
+ignored), falling back to the documented phase order — branding, then
+privacy, then features — sorting within each phase under LC_ALL=C.
+
+After patches apply, if branding/openbook/ exists, its contents are mirrored
+into <source>/browser/branding/openbook/ to supply the binary brand assets
+and default-prefs.js that the branding patch references but does not embed.
 USAGE
 }
 
@@ -59,32 +68,58 @@ if [[ ! -d "$PATCH_ROOT" ]]; then
   exit 3
 fi
 
-# Apply phases in the documented order: branding, then privacy, then features,
-# sorting within each phase. A bare lexicographic sort over the whole tree would
-# order the directories branding/features/privacy, contradicting that contract.
-patch_phase_dirs=(branding privacy features)
+# Build the patch list. An explicit patches/SERIES is authoritative (it must
+# list EVERY patch, in apply order); without it, fall back to the documented
+# phase order. A bare lexicographic sort over the whole tree would order the
+# directories branding/features/privacy, contradicting that contract.
 patches=()
-for phase in "${patch_phase_dirs[@]}"; do
-  [[ -d "$PATCH_ROOT/$phase" ]] || continue
-  while IFS= read -r patch_file; do
-    [[ -n "$patch_file" ]] && patches+=("$patch_file")
-  done < <(find "$PATCH_ROOT/$phase" -type f \( -name '*.patch' -o -name '*.diff' \) | LC_ALL=C sort)
-done
-if [[ "${#patches[@]}" -eq 0 ]]; then
-  echo "No patches found under ${PATCH_ROOT}; upstream source remains unmodified."
-  exit 0
+if [[ -f "${PATCH_ROOT}/SERIES" ]]; then
+  while IFS= read -r line; do
+    # Strip comments and surrounding whitespace; skip blanks.
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" ]] && continue
+    p="${PATCH_ROOT}/${line}"
+    if [[ ! -f "$p" ]]; then
+      echo "SERIES entry not found: ${line}" >&2
+      exit 4
+    fi
+    patches+=("$p")
+  done < "${PATCH_ROOT}/SERIES"
+else
+  patch_phase_dirs=(branding privacy features)
+  for phase in "${patch_phase_dirs[@]}"; do
+    [[ -d "$PATCH_ROOT/$phase" ]] || continue
+    while IFS= read -r patch_file; do
+      [[ -n "$patch_file" ]] && patches+=("$patch_file")
+    done < <(find "$PATCH_ROOT/$phase" -type f \( -name '*.patch' -o -name '*.diff' \) | LC_ALL=C sort)
+  done
 fi
 
-cd "$SOURCE_DIR"
-for patch_file in "${patches[@]}"; do
-  echo "Applying ${patch_file}"
-  if [[ -d .git ]]; then
-    git am --3way "$patch_file"
-  else
-    # --fuzz=0: a privacy/security hunk applying at a drifted offset is a
-    # silent semantic change; demand exact context or fail hard.
-    patch -p1 --forward --fuzz=0 --input "$patch_file"
-  fi
-done
+if [[ "${#patches[@]}" -eq 0 ]]; then
+  echo "No patches found under ${PATCH_ROOT}; upstream source remains unmodified."
+else
+  cd "$SOURCE_DIR"
+  for patch_file in "${patches[@]}"; do
+    echo "Applying ${patch_file}"
+    if [[ -d .git ]]; then
+      git am --3way "$patch_file"
+    else
+      # --fuzz=0: a privacy/security hunk applying at a drifted offset is a
+      # silent semantic change; demand exact context or fail hard.
+      patch -p1 --forward --fuzz=0 --input "$patch_file"
+    fi
+  done
+  echo "Applied ${#patches[@]} patches."
+fi
 
-echo "Applied ${#patches[@]} patches."
+# Mirror in-repo branding assets after patches apply. The branding patch
+# creates browser/branding/openbook/jar.mn etc. but the binary icons and
+# default-prefs.js live in this repo so they can be swapped without rewriting
+# the patch.
+if [[ -d "$BRANDING_TREE" ]]; then
+  echo "Syncing branding/openbook -> ${SOURCE_DIR}/browser/branding/openbook"
+  mkdir -p "${SOURCE_DIR}/browser/branding/openbook"
+  cp -a "${BRANDING_TREE}/." "${SOURCE_DIR}/browser/branding/openbook/"
+fi

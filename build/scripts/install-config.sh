@@ -4,7 +4,8 @@
 # OpenBook Browser — install the AutoConfig + enterprise-policy settings layer
 # into a built Firefox dist (Phase 1; Build Plan §4/§11).
 #
-# Installs, with mode 0644:
+# Installs, read-only (mode 0444 — privileged config must never be user-writable;
+# release packaging sets root ownership):
 #   <dist>/defaults/pref/autoconfig.js   loads openbook.cfg
 #   <dist>/openbook.cfg                  privileged AutoConfig hardening
 #   <dist>/distribution/policies.json    enterprise policy (defense in depth)
@@ -119,11 +120,13 @@ for f in "$src_autoconfig" "$src_cfg" "$src_policies"; do
 done
 
 install_file() {
+  # Install read-only (0444): privileged config must never be user-writable
+  # (§11; release packaging sets root ownership). `install` replaces an existing
+  # read-only dest cleanly, where `cp` over a 0444 file would fail with EACCES.
   local src="$1" dst="$2"
   mkdir -p "$(dirname "$dst")"
-  cp "$src" "$dst"
-  chmod 0644 "$dst"
-  echo "$PROG: installed $dst"
+  install -m 0444 "$src" "$dst"
+  echo "$PROG: installed $dst (0444)"
 }
 
 install_file "$src_autoconfig" "$dst_autoconfig"
