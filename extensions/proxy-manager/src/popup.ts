@@ -2,7 +2,7 @@
 // OpenBook Proxy — popup controller. Browser glue; pure logic is imported.
 
 import { type ProxyManagerState, type ProxyConfig, type ProxyType } from "./types.js";
-import { displayStatus, isValidEndpoint } from "./failclosed.js";
+import { displayStatus, isValidCheckUrl, isValidEndpoint } from "./failclosed.js";
 import { webrtcPolicyFor, ipv6WarningFor } from "./leakcontrols.js";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T | null {
@@ -24,7 +24,10 @@ function render(state: ProxyManagerState): void {
   if (statusEl) statusEl.className = `status status-${status}`;
   const statusText: Record<string, string> = {
     protected: "Protected (proxied)",
-    blocked: "Blocked (fail-closed)",
+    blocked:
+      state.proxyEnabled && state.proxy !== null && !state.proxy.checkUrl
+        ? "Blocked (fail-closed) — set a health-check URL so the proxy can be proven healthy"
+        : "Blocked (fail-closed)",
     leaky: "No proxy — blocked by kill-switch",
     direct: "Direct (no proxy)"
   };
@@ -38,6 +41,8 @@ function render(state: ProxyManagerState): void {
     if (host) host.value = state.proxy.host;
     const port = byId<HTMLInputElement>("port");
     if (port) port.value = String(state.proxy.port);
+    const checkUrl = byId<HTMLInputElement>("checkurl");
+    if (checkUrl) checkUrl.value = state.proxy.checkUrl ?? "";
   }
   const enabled = byId<HTMLInputElement>("enabled");
   if (enabled) enabled.checked = state.proxyEnabled;
@@ -80,17 +85,28 @@ async function onSave(ev: Event): Promise<void> {
   const type = (byId<HTMLSelectElement>("type")?.value ?? "socks") as ProxyType;
   const host = byId<HTMLInputElement>("host")?.value.trim() ?? "";
   const port = Number(byId<HTMLInputElement>("port")?.value ?? "0");
+  const checkUrlRaw = byId<HTMLInputElement>("checkurl")?.value.trim() ?? "";
   const proxyEnabled = byId<HTMLInputElement>("enabled")?.checked ?? false;
 
   if (proxyEnabled && !isValidEndpoint(host, port)) {
     setText("form-error", "Enter a valid host and a port between 1 and 65535.");
     return;
   }
+  if (checkUrlRaw.length > 0 && !isValidCheckUrl(checkUrlRaw)) {
+    setText("form-error", "The health-check URL must be a valid https:// URL without credentials.");
+    return;
+  }
   setText("form-error", "");
 
   const proxy: ProxyConfig | null =
     host.length > 0 && port > 0
-      ? { type, host, port, proxyDNS: type === "socks" || type === "socks4" }
+      ? {
+          type,
+          host,
+          port,
+          proxyDNS: type === "socks" || type === "socks4",
+          ...(checkUrlRaw.length > 0 ? { checkUrl: checkUrlRaw } : {})
+        }
       : null;
 
   const res = await send<{ ok: boolean; state: ProxyManagerState }>({

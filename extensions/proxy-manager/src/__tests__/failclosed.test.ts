@@ -3,6 +3,8 @@
 
 import {
   decideRequest,
+  isProbeRequest,
+  isValidCheckUrl,
   nextHealthState,
   displayStatus,
   isValidEndpoint
@@ -157,5 +159,38 @@ describe('isValidEndpoint', () => {
     expect(isValidEndpoint('   ', 1080)).toBe(false);
     expect(isValidEndpoint('socks://h', 1080)).toBe(false);
     expect(isValidEndpoint('a b', 1080)).toBe(false);
+  });
+});
+
+describe('isValidCheckUrl (probe target validation)', () => {
+  it('accepts plain https URLs', () => {
+    expect(isValidCheckUrl('https://example.org/')).toBe(true);
+    expect(isValidCheckUrl('https://status.myproxy.net/health')).toBe(true);
+  });
+  it('rejects http, credentials, and garbage', () => {
+    expect(isValidCheckUrl('http://example.org/')).toBe(false); // downgradable
+    expect(isValidCheckUrl('https://user:pw@example.org/')).toBe(false);
+    expect(isValidCheckUrl('ftp://example.org/')).toBe(false);
+    expect(isValidCheckUrl('not a url')).toBe(false);
+    expect(isValidCheckUrl('')).toBe(false);
+  });
+});
+
+describe('isProbeRequest (the single fail-closed exemption)', () => {
+  const probeUrl = 'https://example.org/?openbook-probe=1-2-3-4';
+
+  it('matches only the exact in-flight probe URL from extension context', () => {
+    expect(isProbeRequest({ url: probeUrl, tabId: -1 }, probeUrl)).toBe(true);
+  });
+  it('never matches when no probe is in flight', () => {
+    expect(isProbeRequest({ url: probeUrl, tabId: -1 }, null)).toBe(false);
+  });
+  it('never matches a tab-originated request (page cannot forge tabId -1)', () => {
+    expect(isProbeRequest({ url: probeUrl, tabId: 7 }, probeUrl)).toBe(false);
+  });
+  it('never matches a different URL (nonce mismatch)', () => {
+    expect(
+      isProbeRequest({ url: 'https://example.org/?openbook-probe=other', tabId: -1 }, probeUrl)
+    ).toBe(false);
   });
 });

@@ -116,3 +116,45 @@ export function isValidEndpoint(host: string, port: number): boolean {
   if (/\s/.test(host) || host.includes("://")) return false;
   return true;
 }
+
+/**
+ * Validate a user-supplied health-check URL. PURE.
+ * HTTPS only (the probe must not be downgradable), no embedded credentials.
+ */
+export function isValidCheckUrl(url: string): boolean {
+  if (typeof url !== "string" || url.trim().length === 0) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.username !== "" || parsed.password !== "") return false;
+  return true;
+}
+
+/**
+ * True when a request is THE active health probe. PURE.
+ *
+ * The probe is the single deliberate exemption from the fail-closed cancel:
+ * without it, the blocking listener cancels the probe itself and health can
+ * never become "healthy" (a deadlock). The exemption is deterministic and
+ * narrow:
+ *   - the URL must match the in-flight probe URL exactly, which carries a
+ *     fresh per-probe random nonce a page cannot guess, and
+ *   - the request must come from extension context (tabId === -1), which a
+ *     page cannot forge.
+ * The probe is still routed THROUGH the proxy (see resolveProxyInfo); it is
+ * exempt from cancellation, never from proxying — so it cannot leak direct.
+ */
+export function isProbeRequest(
+  details: { url: string; tabId: number },
+  activeProbeUrl: string | null
+): boolean {
+  return (
+    activeProbeUrl !== null &&
+    details.tabId === -1 &&
+    details.url === activeProbeUrl
+  );
+}

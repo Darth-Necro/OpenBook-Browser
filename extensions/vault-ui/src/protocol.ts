@@ -37,8 +37,13 @@ export type VaultErrorCode =
 export interface BaseRequest {
   /** Discriminator for the request kind. */
   type: RequestType;
-  /** Correlation id; the matching response echoes this exact value. */
-  id: string;
+  /**
+   * Correlation id; the matching response echoes this exact value.
+   * MUST be a JSON number: the host parses it as an `i64` and rejects any
+   * frame whose id is a string (and host responses always carry a numeric
+   * id, which would never match a string-keyed pending map).
+   */
+  id: number;
 }
 
 export type RequestType = "status" | "setup" | "unlock" | "lock" | "erase";
@@ -90,7 +95,7 @@ export type DistributiveOmit<T, K extends keyof never> = T extends unknown
 
 /** A request variant with `id` optional (the client fills it in). */
 export type RequestWithoutId = DistributiveOmit<VaultRequest, "id"> & {
-  id?: string;
+  id?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -98,8 +103,8 @@ export type RequestWithoutId = DistributiveOmit<VaultRequest, "id"> & {
 // ---------------------------------------------------------------------------
 
 export interface BaseResponse {
-  /** Correlation id echoed from the originating request. */
-  id: string;
+  /** Correlation id echoed from the originating request (numeric, i64). */
+  id: number;
   ok: boolean;
 }
 
@@ -160,7 +165,9 @@ export type VaultResponse =
 export function isVaultResponse(value: unknown): value is VaultResponse {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
-  return typeof v.id === "string" && typeof v.ok === "boolean";
+  // The host's id is an i64 and is always a JSON number (error envelopes for
+  // unparseable frames use id 0). Anything else is not a host response.
+  return typeof v.id === "number" && Number.isInteger(v.id) && typeof v.ok === "boolean";
 }
 
 export function isErrorResponse(r: VaultResponse): r is ErrorResponse {
@@ -243,14 +250,17 @@ export interface PortLike {
 /** Factory that opens a native port. Injected so tests can supply a fake. */
 export type PortFactory = () => PortLike;
 
-/** Monotonic-ish id generator. Injected for deterministic tests. */
-export type IdGenerator = () => string;
+/** Monotonic id generator. Injected for deterministic tests. */
+export type IdGenerator = () => number;
 
 let __seq = 0;
 export const defaultIdGenerator: IdGenerator = () => {
+  // A plain monotonic counter: ids only need to be unique among this
+  // client's in-flight requests, and the host requires a JSON integer
+  // (i64). Starts at 1 so the host's id-0 "unparseable frame" envelope
+  // never collides with a real pending request.
   __seq += 1;
-  // Combine a counter with time for uniqueness across reconnects.
-  return `req-${Date.now().toString(36)}-${__seq.toString(36)}`;
+  return __seq;
 };
 
 export interface VaultClientOptions {
@@ -278,7 +288,7 @@ interface Pending {
  */
 export class VaultClient {
   private port: PortLike | null = null;
-  private readonly pending = new Map<string, Pending>();
+  private readonly pending = new Map<number, Pending>();
   private readonly portFactory: PortFactory;
   private readonly idGen: IdGenerator;
   private readonly timeoutMs: number;
