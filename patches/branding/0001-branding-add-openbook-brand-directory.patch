@@ -7,18 +7,29 @@ Introduces browser/branding/openbook/ with brand strings and build
 integration. Selected via --with-branding=browser/branding/openbook in
 all per-platform mozconfigs.
 
-Binary branding assets (icons, SVGs) are tracked in branding/ in the
-OpenBook repository and must be present before a release build.
+The repository's branding/openbook/ directory is the single source of truth:
+build/scripts/build.sh stages it over this directory before the build, so the
+files created here are deliberately IDENTICAL to the repo copies (the staging
+copy is then a no-op for them). The patch exists so the brand directory is
+complete even before staging and so `mach` configure/jar processing finds the
+moz.build/jar.mn it expects.
+
+KNOWN GAP (release blocker, tracked in branding/README.md and
+docs/RELEASE-CHECKLIST.md): platform raster icons (firefox.ico, firefox.icns,
+default*.png — upstream file names, OpenBook art) are generated from the SVG
+sources per branding/openbook/content/branding.json; the generator must run
+before the Phase 1 release gate. jar.mn below references ONLY assets that
+exist today (SVGs), so a build does not fail on missing rasters.
 ---
- browser/branding/openbook/configure.sh                   |  9 +++++++++
- browser/branding/openbook/jar.mn                         |  8 ++++++++
- browser/branding/openbook/locales/en-US/brand.dtd        |  6 ++++++
- browser/branding/openbook/locales/en-US/brand.properties |  4 ++++
- browser/branding/openbook/moz.build                      | 12 ++++++++++++
- 5 files changed, 39 insertions(+)
+ browser/branding/openbook/configure.sh                   | 55 ++++++++++++++++
+ browser/branding/openbook/jar.mn                         |  9 +++
+ browser/branding/openbook/locales/en-US/brand.ftl        | 23 +++++++
+ browser/branding/openbook/locales/en-US/brand.properties |  8 +++
+ browser/branding/openbook/moz.build                      | 15 +++++
+ 5 files changed, 110 insertions(+)
  create mode 100755 browser/branding/openbook/configure.sh
  create mode 100644 browser/branding/openbook/jar.mn
- create mode 100644 browser/branding/openbook/locales/en-US/brand.dtd
+ create mode 100644 browser/branding/openbook/locales/en-US/brand.ftl
  create mode 100644 browser/branding/openbook/locales/en-US/brand.properties
  create mode 100644 browser/branding/openbook/moz.build
 
@@ -27,58 +38,128 @@ new file mode 100755
 index 0000000..0000001
 --- /dev/null
 +++ b/browser/branding/openbook/configure.sh
-@@ -0,0 +1,9 @@
-+# OpenBook Browser branding configure.sh
-+# Sourced by Firefox configure when --with-branding=browser/branding/openbook.
-+MOZ_APP_NAME=openbook
-+MOZ_APP_DISPLAYNAME="OpenBook Browser"
-+MOZ_MACBUNDLE_NAME="OpenBook Browser.app"
-+MOZ_APP_VENDOR="OpenBook"
-+MOZ_APP_ID="{c2e00de3-2c7b-4bfe-8a57-4c38e1b3a1a0}"
-+export MOZ_APP_NAME MOZ_APP_DISPLAYNAME MOZ_MACBUNDLE_NAME MOZ_APP_VENDOR MOZ_APP_ID
+@@ -0,0 +1,55 @@
++# SPDX-License-Identifier: MPL-2.0
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 +
++# OpenBook branding configure fragment. IDENTICAL to the repository's
++# branding/openbook/configure.sh (single source of truth; build.sh staging
++# overwrites this file with that copy, which must be a no-op).
++
++# Internal application name: binary name, profile dir component, lowercase, no
++# spaces. Distinct from the display name below.
++MOZ_APP_NAME=openbook
++
++# Human-facing product name shown in the title bar, About dialog and OS menus.
++MOZ_APP_DISPLAYNAME=OpenBook
++
++# macOS .app bundle name derived from the display name.
++MOZ_MACBUNDLE_NAME=OpenBook.app
++
++# Stable application id (XULAppData). OpenBook's own GUID — never Firefox's.
++MOZ_APP_ID={c2e00de3-2c7b-4bfe-8a57-4c38e1b3a1a0}
++
++# Vendor string baked into the application. Used for profile/registry paths,
++# update URLs and the "by <vendor>" strings. OpenBook is its own vendor; it is
++# explicitly NOT "Mozilla".
++MOZ_APP_VENDOR=OpenBook
++
++# Wayland/X11 app id and the -P / remoting name used by `firefox --new-instance`
++# style remote control. Lowercase, no spaces. Drives the .desktop StartupWMClass
++# and the DBus name, so it must be stable across releases.
++MOZ_APP_REMOTINGNAME=openbook
++
++# macOS bundle identifier base. The full CFBundleIdentifier becomes
++# org.openbook.openbook for the browser app.
++MOZ_MACBUNDLE_ID=org.openbook.openbook
++
++# Distribution/Telemetry channel display label. Kept neutral; OpenBook does not
++# operate Mozilla's release channels.
++MOZ_DISTRIBUTION_ID=org.openbook
++
++# Branding directory, relative to the source root, so other configure logic that
++# references the branding dir resolves to ours.
++MOZ_BRANDING_DIRECTORY=browser/branding/openbook
++MOZ_OFFICIAL_BRANDING_DIRECTORY=browser/branding/openbook
++
++# Do not let any upstream "official branding" trademark switch flip us back to
++# Firefox art. OpenBook art is the only art we ship.
++export MOZ_APP_NAME
++export MOZ_MACBUNDLE_NAME
++export MOZ_APP_ID
++export MOZ_APP_DISPLAYNAME
++export MOZ_APP_VENDOR
++export MOZ_APP_REMOTINGNAME
++export MOZ_MACBUNDLE_ID
++export MOZ_DISTRIBUTION_ID
++export MOZ_BRANDING_DIRECTORY
++export MOZ_OFFICIAL_BRANDING_DIRECTORY
 diff --git a/browser/branding/openbook/jar.mn b/browser/branding/openbook/jar.mn
 new file mode 100644
 index 0000000..0000002
 --- /dev/null
 +++ b/browser/branding/openbook/jar.mn
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,9 @@
++#filter substitution
 +browser.jar:
 +% content branding %content/branding/
-+    content/branding/about-logo.png             (content/about-logo.png)
-+    content/branding/about-logo@2x.png          (content/about-logo@2x.png)
 +    content/branding/about-logo.svg             (content/about-logo.svg)
-+    content/branding/identity-icons-brand.svg   (content/identity-icons-brand.svg)
-+    content/branding/favicon32.ico              (content/favicon32.ico)
-+    content/branding/favicon64.ico              (content/favicon64.ico)
-diff --git a/browser/branding/openbook/locales/en-US/brand.dtd b/browser/branding/openbook/locales/en-US/brand.dtd
++    content/branding/icon.svg                   (content/icon.svg)
++    content/branding/default-favicon.svg        (content/default-favicon.svg)
++# Raster icon lines (about-logo.png/@2x, identity-icons-brand.svg, favicons)
++# return here when the deterministic SVG->raster generation step lands; see
++# branding/openbook/content/branding.json (release blocker until then).
+diff --git a/browser/branding/openbook/locales/en-US/brand.ftl b/browser/branding/openbook/locales/en-US/brand.ftl
 new file mode 100644
 index 0000000..0000003
 --- /dev/null
-+++ b/browser/branding/openbook/locales/en-US/brand.dtd
-@@ -0,0 +1,6 @@
-+<!ENTITY  brandShortName      "OpenBook">
-+<!ENTITY  brandShorterName    "OpenBook">
-+<!ENTITY  brandFullName       "OpenBook Browser">
-+<!ENTITY  vendorShortName     "OpenBook">
-+<!ENTITY  trademarkInfo.part1 "OpenBook Browser is free and open-source software released under the Mozilla Public License.">
++++ b/browser/branding/openbook/locales/en-US/brand.ftl
+@@ -0,0 +1,23 @@
++# SPDX-License-Identifier: MPL-2.0
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 +
++# OpenBook branding strings (Fluent form).
++# Mirrors browser/branding/<channel>/locales/en-US/brand.ftl. These are the
++# brand-* terms the rest of the Firefox front-end references with { -brand-* }.
++# Keeping the exact term keys Firefox expects means no upstream .ftl needs to be
++# patched for strings to resolve. No Firefox/Mozilla trademark here (§13).
++
++-brand-shorter-name = OpenBook
++-brand-short-name = OpenBook
++-brand-full-name = OpenBook
++# Product name without the company; OpenBook uses the same name for all forms.
++-brand-product-name = OpenBook
++-vendor-short-name = OpenBook
++
++# Trademark / legal line shown in About. OpenBook is not affiliated with Mozilla;
++# the line deliberately avoids any Firefox or Mozilla mark.
++trademarkInfo = OpenBook is an independent, privacy-hardened browser built from
++    Firefox source code under the Mozilla Public License. It is not produced by
++    or endorsed by Mozilla. Firefox is a trademark of the Mozilla Foundation.
 diff --git a/browser/branding/openbook/locales/en-US/brand.properties b/browser/branding/openbook/locales/en-US/brand.properties
 new file mode 100644
 index 0000000..0000004
 --- /dev/null
 +++ b/browser/branding/openbook/locales/en-US/brand.properties
-@@ -0,0 +1,4 @@
+@@ -0,0 +1,8 @@
++# SPDX-License-Identifier: MPL-2.0
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 +brandShortName=OpenBook
 +brandShorterName=OpenBook
-+brandFullName=OpenBook Browser
++brandFullName=OpenBook
 +vendorShortName=OpenBook
 diff --git a/browser/branding/openbook/moz.build b/browser/branding/openbook/moz.build
 new file mode 100644
 index 0000000..0000005
 --- /dev/null
 +++ b/browser/branding/openbook/moz.build
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,15 @@
 +# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
 +# vim: set filetype=python:
 +# This Source Code Form is subject to the terms of the Mozilla Public
@@ -87,7 +168,10 @@ index 0000000..0000005
 +
 +JAR_MANIFESTS += ['jar.mn']
 +
-+FINAL_TARGET_FILES.defaults.preferences += ['default-prefs.js']
++# Branding-scoped default prefs. This is the file the repository actually
++# ships (branding/openbook/pref/firefox-branding.js, staged by build.sh) —
++# upstream branding dirs stage the same path via branding-common.mozbuild.
++FINAL_TARGET_PP_FILES.defaults.pref += ['pref/firefox-branding.js']
 +
 +with Files('**'):
 +    BUG_COMPONENT = ('OpenBook Browser', 'Branding')

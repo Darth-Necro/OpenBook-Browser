@@ -66,8 +66,11 @@ dst_cfg="$DIST/openbook.cfg"
 dst_policies="$DIST/distribution/policies.json"
 
 check_perms() {
-  # check_perms FILE -> assert root-owned and not group/other writable (§11).
-  local f="$1" uid mode
+  # check_perms FILE -> assert root-owned and not group/other writable (§11),
+  # INCLUDING the directory chain up to $DIST: a locked-down file inside a
+  # user-writable directory is still replaceable (rename + recreate), so the
+  # invariant only holds when the whole containing chain is locked down.
+  local f="$1" uid mode d
   uid="$(stat -c '%u' "$f")"
   mode="$(stat -c '%a' "$f")"
   if [[ "$uid" != "0" ]]; then
@@ -78,6 +81,21 @@ check_perms() {
     echo "$PROG: $f is group/other-writable (mode=$mode); §11 forbids this." >&2
     return 1
   fi
+  d="$(dirname -- "$f")"
+  while :; do
+    uid="$(stat -c '%u' "$d")"
+    mode="$(stat -c '%a' "$d")"
+    if [[ "$uid" != "0" ]]; then
+      echo "$PROG: parent dir of $f not root-owned (uid=$uid): $d (§11)." >&2
+      return 1
+    fi
+    if (( 0$mode & 022 )); then
+      echo "$PROG: parent dir of $f is group/other-writable (mode=$mode): $d (§11)." >&2
+      return 1
+    fi
+    [[ "$d" == "$DIST" || "$d" == "/" || "$d" == "." ]] && break
+    d="$(dirname -- "$d")"
+  done
   return 0
 }
 

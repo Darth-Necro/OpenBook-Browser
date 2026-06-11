@@ -68,7 +68,7 @@ for phase in "${patch_phase_dirs[@]}"; do
   [[ -d "$PATCH_ROOT/$phase" ]] || continue
   while IFS= read -r patch_file; do
     [[ -n "$patch_file" ]] && patches+=("$patch_file")
-  done < <(find "$PATCH_ROOT/$phase" -type f \( -name '*.patch' -o -name '*.diff' \) | sort)
+  done < <(find "$PATCH_ROOT/$phase" -type f \( -name '*.patch' -o -name '*.diff' \) | LC_ALL=C sort)
 done
 if [[ "${#patches[@]}" -eq 0 ]]; then
   echo "No patches found under ${PATCH_ROOT}; upstream source remains unmodified."
@@ -81,7 +81,9 @@ for patch_file in "${patches[@]}"; do
   if [[ -d .git ]]; then
     git am --3way "$patch_file"
   else
-    patch -p1 --forward --input "$patch_file"
+    # --fuzz=0: a privacy/security hunk applying at a drifted offset is a
+    # silent semantic change; demand exact context or fail hard.
+    patch -p1 --forward --fuzz=0 --input "$patch_file"
   fi
 done
 

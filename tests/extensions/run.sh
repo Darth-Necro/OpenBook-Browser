@@ -21,7 +21,7 @@ echo "== OpenBook extension unit tests =="
 for ext in "${EXTENSIONS[@]}"; do
   if [ ! -d "${EXT_DIR}/${ext}/node_modules" ]; then
     echo "-- installing deps for ${ext}"
-    npm --prefix "${EXT_DIR}/${ext}" install
+    npm --prefix "${EXT_DIR}/${ext}" ci
   fi
 done
 

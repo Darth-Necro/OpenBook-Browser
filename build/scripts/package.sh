@@ -147,12 +147,26 @@ echo "$PROG: verified OpenBook AutoConfig + policies present in $dist_dir"
 
 # --- base package: mach package ---------------------------------------------
 # Always produce the base package first; the OS format wraps/derives from it.
+# MOZCONFIG must be exported for mach to find the OpenBook objdir — without it
+# mach falls back to autodetection and can package the wrong (or no) build.
 
-echo "$PROG: running './mach package' (base package)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." >/dev/null 2>&1 && pwd)"
+MOZCONFIG_FILE="$REPO_ROOT/build/mozconfig/mozconfig.${TARGET}"
+[[ -f "$MOZCONFIG_FILE" ]] || die 3 "mozconfig not found for target: $MOZCONFIG_FILE"
+
+echo "$PROG: running './mach package' (base package, MOZCONFIG=$MOZCONFIG_FILE)"
 (
   cd "$SOURCE_DIR"
-  ./mach package
+  MOZCONFIG="$MOZCONFIG_FILE" ./mach package
 ) || die 6 "'mach package' failed"
+
+# The §11 permissions invariant is enforced on the staged tree by
+# verify-release-permissions.sh; each format branch below must run it against
+# its staging directory before emitting a package. (The branches that are not
+# yet implemented FAIL CLOSED instead of pretending success.)
+VERIFY_PERMS="$REPO_ROOT/build/scripts/verify-release-permissions.sh"
+[[ -x "$VERIFY_PERMS" ]] || die 3 "verify-release-permissions.sh missing/not executable"
 
 # --- per-format orchestration -----------------------------------------------
 # Each branch verifies its prerequisite tool, then runs the packager. The actual
@@ -170,72 +184,64 @@ case "$FORMAT" in
 
   deb)
     require_tool dpkg-deb "Install dpkg-dev (provides dpkg-deb). Run on a Debian/Ubuntu build host."
-    echo "$PROG: building .deb (dpkg-deb)."
-    echo "$PROG: TODO(build-host): assemble the DEBIAN/ control tree + payload, then"
-    echo "$PROG:   dpkg-deb --build --root-owner-group <stagedir> <out.deb>"
-    echo "$PROG:   NOTE: privileged files (openbook.cfg, defaults/pref/*.js, native"
-    echo "$PROG:   host binary + manifest) MUST be packaged root-owned and 0644/0755,"
-    echo "$PROG:   not user-writable (Build Plan §11)."
+    # Fail closed until the recipe lands: a success exit with no .deb produced
+    # would let a caller (or CI) believe a package exists. When implementing:
+    # assemble the DEBIAN/ control tree + payload, run
+    #   "$VERIFY_PERMS" --root <stagedir>   (§11 — release blocker on failure)
+    # then: dpkg-deb --build --root-owner-group <stagedir> <out.deb>
+    die 6 "deb packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   rpm)
     require_tool rpmbuild "Install rpm-build (provides rpmbuild). Run on a Fedora/RHEL/openSUSE build host."
-    echo "$PROG: building .rpm (rpmbuild)."
-    echo "$PROG: TODO(build-host): render the openbook.spec with the built tree and"
-    echo "$PROG:   rpmbuild -bb openbook.spec  (ensure %files marks privileged files"
-    echo "$PROG:   root-owned and non-user-writable per §11)."
+    # Fail closed until the openbook.spec lands. The %files section must mark
+    # privileged files root-owned/non-user-writable and the staged buildroot
+    # must pass "$VERIFY_PERMS" --root <buildroot> (§11).
+    die 6 "rpm packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   flatpak)
     require_tool flatpak-builder "Install flatpak-builder + the Flatpak runtime/SDK. Run on a host with flatpak."
-    echo "$PROG: building Flatpak (flatpak-builder)."
-    echo "$PROG: TODO(build-host): flatpak-builder --repo=<repo> <builddir>"
-    echo "$PROG:   org.openbook.Browser.yml  (then 'flatpak build-bundle' for a .flatpak)."
+    # Fail closed until org.openbook.Browser.yml lands (then flatpak-builder
+    # --repo=<repo> <builddir> org.openbook.Browser.yml + build-bundle).
+    die 6 "flatpak packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   appimage)
     require_tool appimagetool "Install appimagetool (AppImageKit). Run on a Linux build host."
-    echo "$PROG: building AppImage (appimagetool)."
-    echo "$PROG: TODO(build-host): stage the AppDir (AppRun, .desktop, icon, payload)"
-    echo "$PROG:   then  appimagetool <AppDir> openbook-x86_64.AppImage"
+    # Fail closed until the AppDir staging (AppRun, .desktop, icon, payload,
+    # "$VERIFY_PERMS" pass) lands; then appimagetool <AppDir> <out.AppImage>.
+    die 6 "appimage packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   dmg)
     require_tool hdiutil "Run on macOS: 'hdiutil' ships with macOS and is required to build a .dmg."
-    echo "$PROG: building .dmg (hdiutil) — macOS host required."
-    echo "$PROG: TODO(macOS host): hdiutil create -volname OpenBook -srcfolder <staged.app>"
-    echo "$PROG:   -ov -format UDZO openbook.dmg  (universal x86_64+arm64 .app)."
-    echo "$PROG:   codesign + notarize + staple happen in build/scripts/sign.sh."
+    # Fail closed until the staged universal .app + hdiutil recipe lands
+    # (codesign/notarize/staple stay in sign.sh).
+    die 6 "dmg packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   pkg)
     # Prefer productbuild; fall back to pkgbuild. Require at least one.
-    if command -v productbuild >/dev/null 2>&1; then
-      echo "$PROG: building .pkg (productbuild) — macOS host."
-    elif command -v pkgbuild >/dev/null 2>&1; then
-      echo "$PROG: building .pkg (pkgbuild) — macOS host."
-    else
+    if ! command -v productbuild >/dev/null 2>&1 && ! command -v pkgbuild >/dev/null 2>&1; then
       die 4 "neither 'productbuild' nor 'pkgbuild' found. Run on a macOS build host with Xcode command line tools."
     fi
-    echo "$PROG: TODO(macOS host): pkgbuild/productbuild the staged universal .app into openbook.pkg."
+    die 6 "pkg packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   exe)
     require_tool makensis "Install NSIS (provides makensis). Run on a Windows build host (or wine-based CI)."
-    echo "$PROG: building NSIS installer .exe (makensis) — Windows host."
-    echo "$PROG: TODO(Windows host): makensis openbook.nsi  (Authenticode signing is sign.sh)."
+    # Fail closed until the NSIS script lands (Authenticode signing is sign.sh).
+    die 6 "exe packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   msi)
     # WiX toolset: candle+light (v3) or the 'wix' CLI (v4+). Require at least one.
-    if command -v wix >/dev/null 2>&1; then
-      echo "$PROG: building .msi (WiX 'wix' CLI) — Windows host."
-    elif command -v candle >/dev/null 2>&1 && command -v light >/dev/null 2>&1; then
-      echo "$PROG: building .msi (WiX candle+light) — Windows host."
-    else
+    if ! command -v wix >/dev/null 2>&1 \
+       && ! { command -v candle >/dev/null 2>&1 && command -v light >/dev/null 2>&1; }; then
       die 4 "WiX toolset not found ('wix' or 'candle'+'light'). Install WiX and run on a Windows build host."
     fi
-    echo "$PROG: TODO(Windows host): compile the WiX authoring into openbook.msi (signing is sign.sh)."
+    die 6 "msi packaging recipe not implemented yet — refusing to report success (fail closed)"
     ;;
 
   *)

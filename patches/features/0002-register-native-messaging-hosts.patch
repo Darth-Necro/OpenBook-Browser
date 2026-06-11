@@ -1,52 +1,76 @@
 From 1a0006000000000000000000000000000000ob06 Mon Sep 17 00:00:00 2001
 From: OpenBook Maintainers <goodhackersolutions@gmail.com>
 Date: Sun, 8 Jun 2026 00:00:05 +0000
-Subject: [PATCH 6/6] features: package native-messaging host manifests root-owned
+Subject: [PATCH 6/6] features: package the OpenBook hardening layer + native hosts
 
 SPDX-License-Identifier: MPL-2.0
 
-Packaging hook for the two OpenBook native messaging hosts:
-  - org.openbook.vault_host  (Rust: Argon2id, TPM2/Secure Enclave, key erasure)
-  - org.openbook.vpn_helper  (optional VPN/leak helper, later phase)
+Adds the OpenBook-installed files to the packaging manifest so `mach package`
+ships them. EVERY OpenBook line below is an ADDITION (+): none of these paths
+exist in upstream Firefox, so a patch that listed them as context could never
+apply — and worse, a package built without them would silently lack the
+telemetry-off/policy layer (a release-blocking fail-open). package.sh verifies
+the files in dist/ before packaging AND the packaged archive must contain them.
+
+  - defaults/pref/autoconfig.js + openbook.cfg: the AutoConfig hardening layer
+    (installed into dist by build/scripts/install-config.sh after the build).
+  - distribution/policies.json: the enterprise-policy layer.
+  - distribution/extensions/<id>.xpi: the three bundled first-party extensions,
+    installed via Mozilla's supported distribution-extensions mechanism (no
+    source patch needed to make Firefox load them — this replaces the earlier
+    speculative builtinExtensions.json patch, which targeted a file that does
+    not exist upstream). The XPIs are built by package-components.sh and staged
+    into dist/distribution/extensions/ before `mach package` on the build host.
+  - native-messaging host manifests + vault host binary (linux packaging v1;
+    macOS/Windows native-messaging paths differ and land with their packaging
+    recipes).
 
 The browser READS and validates a native-host manifest's allowed_extensions but
 does NOT install or manage the host -- its security model is that of a native
 application (docs/OpenBook-Browser-Build-Plan.md §1). Therefore the manifest and
 the host binary MUST be installed by OS packaging, root-owned and NOT
 user-writable. A user-writable native-host manifest or binary is a local
-privilege-escalation hole and is a RELEASE BLOCKER (§11).
+privilege-escalation hole and is a RELEASE BLOCKER (§11). Each manifest's
+allowed_extensions binds it to its first-party extension ID
+(vault_host <-> vault-ui@openbook.browser;
+ vpn_helper <-> proxy-manager@openbook.browser).
 
-This adds install rules to the packaging manifest so deb/rpm/pkg place the host
-manifests at the platform native-messaging path with mode 0644 root:root, and
-the Rust host binary (built from native/vault-host) at mode 0755 root:root in a
-non-user-writable libexec directory. Each manifest's allowed_extensions binds it
-to its first-party extension ID (vault_host <-> vault-ui@openbook.browser;
-vpn_helper <-> proxy-manager@openbook.browser).
-
-NOTE: exact paths/format are reconciled in CI against Firefox 145.0.2 packaging.
+NOTE: hunk offsets are reconciled against the real firefox-145.0.2 tree by the
+rebase step (docs/RELEASE-CHECKLIST.md §3); context anchors are the
+long-standing `[Browser Chrome Files]` section markers and apply-patches.sh
+runs patch with --fuzz=0 (exact context, offsets allowed).
 ---
- browser/installer/package-manifest.in | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ browser/installer/package-manifest.in | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
 diff --git a/browser/installer/package-manifest.in b/browser/installer/package-manifest.in
 index bbbbbbb..ccccccc 100644
 --- a/browser/installer/package-manifest.in
 +++ b/browser/installer/package-manifest.in
-@@ -60,4 +60,15 @@
- @RESPATH@/defaults/pref/autoconfig.js
- @BINPATH@/openbook.cfg
+@@ -60,2 +60,24 @@
  ; [Browser Chrome Files]
-+; OpenBook native-messaging host manifests + binary.
-+;   Installed by OS packaging root-owned, NOT user-writable (docs §11). The
-+;   post-install step fixes ownership to root:root and mode (manifests 0644,
-+;   binary 0755). The browser only validates allowed_extensions; it never
-+;   manages the host itself.
++; --- OpenBook hardening layer (Build Plan §4/§11) ---------------------------
++; Installed into dist by build/scripts/install-config.sh after the build; the
++; package MUST carry them or the shipped browser has no telemetry-off layer.
++@RESPATH@/defaults/pref/autoconfig.js
++@BINPATH@/openbook.cfg
++@RESPATH@/distribution/policies.json
++; Bundled first-party extensions via the distribution mechanism (auto-installed
++; on first run; allowlisted by ExtensionSettings in policies.json).
++@RESPATH@/distribution/extensions/vault-ui@openbook.browser.xpi
++@RESPATH@/distribution/extensions/proxy-manager@openbook.browser.xpi
++@RESPATH@/distribution/extensions/ai-sidebar@openbook.browser.xpi
++; OpenBook native-messaging host manifests + binary (linux v1; macOS/Windows
++; land with their per-OS packaging recipes). Installed by OS packaging
++; root-owned, NOT user-writable (§11); post-install fixes ownership to
++; root:root and mode (manifests 0644, binary 0755). The browser only validates
++; allowed_extensions; it never manages the host itself.
 +#ifdef XP_LINUX
 +@RESPATH@/native-messaging-hosts/org.openbook.vault_host.json
 +@RESPATH@/native-messaging-hosts/org.openbook.vpn_helper.json
-+#endif
 +@BINPATH@/openbook-vault-host
-+; (end OpenBook native-messaging hosts)
++#endif
++; --- end OpenBook ------------------------------------------------------------
  @RESPATH@/browser/chrome.manifest
 --
 2.45.0
