@@ -190,13 +190,34 @@ def test_misc_privacy() -> None:
     assert _func("dom.security.https_only_mode") == "lockPref"
 
 
-def test_updates_kept_on() -> None:
-    # Security patches matter; app update must NOT be disabled in the cfg.
-    # (We assert there is no pref turning auto-update off to a literal false-lock
-    #  that would strand users on an unpatched build.)
-    assert PREFS.get("app.update.auto", (None, "true"))[1] != "false", (
-        "app.update.auto must not be disabled — updates carry security fixes"
+def test_in_app_updater_disabled() -> None:
+    # ADR-0018: OpenBook runs no update server; the compiled-in endpoint is
+    # Mozilla's. The in-app updater must therefore be OFF (unsolicited egress +
+    # would offer stock Firefox MARs). Security updates flow via the package
+    # channels (ADR-0013) on the MFSA-tracked 1–2 day SLA.
+    assert _val("app.update.auto") == "false"
+    assert _func("app.update.auto") == "lockPref"
+    assert _val("app.update.background.scheduling.enabled") == "false"
+    assert _func("app.update.background.scheduling.enabled") == "lockPref"
+    # And the cfg must keep saying WHY + where updates come from instead.
+    text = CFG.read_text(encoding="utf-8")
+    assert "ADR-0018" in text and "package" in text.lower(), (
+        "openbook.cfg must document the package-channel update path"
     )
+
+
+def test_remaining_background_egress_controlled() -> None:
+    # Invariant 1: every fresh-profile endpoint is disabled or documented.
+    # System add-on pipeline (silent privileged code swaps) must be hard-off.
+    assert _val("extensions.systemAddon.update.enabled") == "false"
+    assert _func("extensions.systemAddon.update.enabled") == "lockPref"
+    assert _val("extensions.systemAddon.update.url") == '""'
+    assert _func("extensions.systemAddon.update.url") == "lockPref"
+    # The documented-exceptions block must name each deliberate exception.
+    text = CFG.read_text(encoding="utf-8")
+    assert "DOCUMENTED EXCEPTIONS" in text
+    for exception in ("Remote Settings", "Safe Browsing", "gmp", "DoH"):
+        assert exception in text, f"egress exception not documented: {exception}"
 
 
 def main() -> None:

@@ -6,3 +6,7 @@ ac_add_options --enable-application=browser
 ac_add_options --enable-artifact-builds
 ac_add_options --with-branding=browser/branding/openbook
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-artifact
+# NOTE: compile-time privacy flags (--disable-crashreporter/--disable-updater)
+# are NOT set here: artifact builds reuse Mozilla's prebuilt internals, which
+# ship those components. Artifact builds are for frontend iteration ONLY and
+# must never be released (the config layer still disables both at runtime).

@@ -51,11 +51,12 @@ def test_obscure_value_zero() -> None:
     )
 
 
-def test_sandbox_disabled() -> None:
-    # The .cfg needs the full AutoConfig API (lockPref etc.), which requires the
-    # sandbox to be off.
-    assert PREFS.get("general.config.sandbox_enabled") == "false", (
-        "general.config.sandbox_enabled must be false so lockPref() works"
+def test_sandbox_not_disabled() -> None:
+    # openbook.cfg uses only defaultPref()/lockPref(), which the AutoConfig
+    # sandbox provides. Disabling the sandbox would grant the .cfg full chrome
+    # privilege for no functional gain (least privilege, §11).
+    assert PREFS.get("general.config.sandbox_enabled") != "false", (
+        "do not disable the AutoConfig sandbox; the cfg only needs the sandboxed API"
     )
 
 

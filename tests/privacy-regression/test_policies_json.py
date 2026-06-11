@@ -51,9 +51,11 @@ def test_first_run_and_bookmarks_neutral() -> None:
     assert P.get("NoDefaultBookmarks") is True
 
 
-def test_updates_kept_on() -> None:
-    # Keep security updates flowing.
-    assert P.get("DisableAppUpdate") is False
+def test_in_app_updater_disabled() -> None:
+    # ADR-0018: no OpenBook update server exists; the in-app updater would poll
+    # Mozilla's endpoint (unsolicited egress) and could serve stock Firefox.
+    # Updates flow via signed package channels (ADR-0013).
+    assert P.get("DisableAppUpdate") is True
 
 
 def test_tracking_protection_policy() -> None:

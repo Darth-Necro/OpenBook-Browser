@@ -53,11 +53,16 @@ exercised, are:
 - The configured **DoH resolver** host (e.g. `dns.quad9.net`) — and only if the
   test intentionally triggers a DNS lookup. A bare first run with no navigation
   should not contact it.
-- The **app-update** check host (OpenBook's own update infrastructure) — gated
-  behind a separate, explicitly-labeled update-check test, not the zero-egress
-  first-run test. Updates are a deliberate, first-party, security-relevant
-  connection (see `openbook.cfg` §11 / `policies.json` `DisableAppUpdate:false`),
-  so the egress test treats it as a named exception, never as "unexpected".
+- ~~The app-update check host~~ — **removed (ADR-0018):** the in-app updater is
+  disabled (`policies.json` `DisableAppUpdate:true`, `openbook.cfg` §11) because
+  OpenBook runs no update server and the compiled-in endpoint is Mozilla's.
+  ANY `aus*.mozilla.org` contact is now a hard failure. Updates ship via the
+  signed package channels (ADR-0013).
+- The **documented exceptions** in `openbook.cfg` §12 (Remote Settings/OneCRL,
+  Safe Browsing list updates, GMP fetches, AMO update checks for user-installed
+  extensions) — each only when the run actually exercises the feature and only
+  to its named host; a bare no-navigation first run should observe **none** of
+  them inside the settle window.
 
 Everything else — `*.telemetry.mozilla.org`, `normandy.*`, `*.services.mozilla.com`,
 `detectportal.firefox.com`, `*.googleapis.com`, Safe Browsing update hosts during

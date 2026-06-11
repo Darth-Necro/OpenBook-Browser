@@ -2,3 +2,9 @@
 ac_add_options --enable-application=browser
 ac_add_options --with-branding=browser/branding/openbook
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openbook-linux-x64
+
+# Privacy/egress hardening at compile time (invariant 1, ADR-0018):
+# no crash-report uploader, no in-app updater (updates ship via signed
+# package channels — ADR-0013).
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater

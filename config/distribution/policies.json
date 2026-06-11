@@ -8,7 +8,7 @@
     "DisableFirefoxScreenshots": false,
     "DisableDefaultBrowserAgent": true,
     "DontCheckDefaultBrowser": true,
-    "DisableAppUpdate": false,
+    "DisableAppUpdate": true,
     "DisableSetDesktopBackground": false,
     "DisableProfileImport": false,
     "DisableMasterPasswordCreation": false,
@@ -31,7 +31,7 @@
     },
     "FirefoxHome": {
       "Search": true,
-      "TopSites": true,
+      "TopSites": false,
       "SponsoredTopSites": false,
       "Highlights": false,
       "Pocket": false,
