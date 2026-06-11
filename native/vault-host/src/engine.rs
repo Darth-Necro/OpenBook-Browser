@@ -171,8 +171,13 @@ impl Engine {
             _ => 0,
         };
         let attempts_remaining = if matches!(state, State::Locked | State::Unlocked) {
-            let used = self.provider.read_counter().unwrap_or(0);
-            max_attempts.saturating_sub(used)
+            // A counter that cannot be read trustworthily must not be reported
+            // as a fresh budget: fail closed to 0 remaining (the unlock path
+            // itself fails closed to erasure on a corrupt counter).
+            match self.provider.read_counter() {
+                Ok(used) => max_attempts.saturating_sub(used),
+                Err(_) => 0,
+            }
         } else {
             0
         };
@@ -251,14 +256,15 @@ impl Engine {
         match state {
             State::Uninitialized => return Err(VaultError::not_initialized()),
             State::Erased => return Err(VaultError::erased()),
-            State::Unlocked => {
-                // Already unlocked; treat a successful re-unlock as idempotent
-                // success WITHOUT touching the counter (no failed attempt
-                // occurred). Re-derive to confirm the secret is still correct?
-                // We keep it simple and report unlocked.
-                return Ok(json!({"id": id, "ok": true, "state": State::Unlocked.as_str()}));
-            }
-            State::Locked => {}
+            // An unlock on an already-unlocked vault is a RE-AUTHENTICATION:
+            // it re-verifies the secret under the same counter policy as a
+            // locked unlock (increment before the attempt, reset on success,
+            // erase at the limit). Returning unverified success here would make
+            // `unlock` useless as a gate for sensitive re-actions — any secret
+            // would "work" while the session is unlocked. A failed re-auth
+            // keeps the session unlocked (the caller already holds it) but
+            // burns budget exactly like a locked attempt.
+            State::Unlocked | State::Locked => {}
         }
 
         let meta = self
@@ -267,7 +273,21 @@ impl Engine {
             .ok_or_else(VaultError::not_initialized)?;
 
         // COUNTER POLICY: increment BEFORE the attempt and persist immediately.
-        let attempt_number = self.provider.increment_counter()?;
+        // A corrupt/tampered counter reads as Erased (fail closed); complete
+        // the erasure so the reported state is the real state.
+        let attempt_number = match self.provider.increment_counter() {
+            Ok(n) => n,
+            Err(e) if e.code == ErrorCode::Erased => {
+                self.finalize_erase()?;
+                return Ok(json!({
+                    "id": id,
+                    "ok": false,
+                    "error": "erased",
+                    "state": State::Erased.as_str()
+                }));
+            }
+            Err(other) => return Err(other),
+        };
         let budget = AttemptBudget::evaluate(attempt_number, meta.max_attempts);
 
         // Try to unwrap the MK.
@@ -280,6 +300,13 @@ impl Engine {
                 // product vault-ui/host would expose it to Gecko via the chosen
                 // container mechanism. v1 keeps it in memory then drops it,
                 // zeroized, since we don't mount a FS here.)
+                //
+                // Resetting unconditionally on success is INTENTIONAL, whatever
+                // the counter's prior value: proving knowledge of the secret is
+                // the event the budget exists to gate. In software mode the
+                // counter file offers no offline protection anyway (a disk
+                // imager restores it at will — see SoftwareFallback's warning);
+                // only hardware modes make the budget non-bypassable.
                 self.provider.reset_counter()?;
                 self.mk = Some(mk);
                 Ok(json!({"id": id, "ok": true, "state": State::Unlocked.as_str()}))
@@ -581,5 +608,71 @@ mod tests {
         let r = e.handle_json_bytes(br#"{"type":"explode","id":9}"#);
         assert_eq!(r["error"], "invalid-request");
         assert_eq!(r["id"], 9);
+    }
+
+    #[test]
+    fn corrupt_counter_erases_on_unlock_and_zeroes_status_budget() {
+        let d = tempdir().unwrap();
+        let mut e = engine(d.path());
+        e.handle_json_bytes(
+            format!(r#"{{"type":"setup","id":1,"secret":"{GOOD}","acknowledgeNoRecovery":true}}"#)
+                .as_bytes(),
+        );
+
+        // Tamper: truncate the counter file (the crash window itself is closed
+        // by atomic writes, so a malformed file means tampering/corruption).
+        std::fs::write(d.path().join("counter.bin"), [0u8; 2]).unwrap();
+
+        // status must NOT advertise a fresh budget against an unaccountable
+        // counter (and must not mutate anything).
+        let r = e.handle_json_bytes(br#"{"type":"status","id":2}"#);
+        assert_eq!(r["state"], "locked");
+        assert_eq!(r["attemptsRemaining"], 0);
+
+        // Even the CORRECT secret now fails closed into cryptographic erasure.
+        let r = e.handle_json_bytes(
+            format!(r#"{{"type":"unlock","id":3,"secret":"{GOOD}"}}"#).as_bytes(),
+        );
+        assert_eq!(r["ok"], false, "unlock over corrupt counter: {r}");
+        assert_eq!(r["error"], "erased");
+        assert_eq!(r["state"], "erased");
+
+        let r = e.handle_json_bytes(br#"{"type":"status","id":4}"#);
+        assert_eq!(r["state"], "erased");
+    }
+
+    #[test]
+    fn unlock_while_unlocked_is_real_reauth() {
+        let d = tempdir().unwrap();
+        let mut e = engine(d.path());
+        e.handle_json_bytes(
+            format!(r#"{{"type":"setup","id":1,"secret":"{GOOD}","acknowledgeNoRecovery":true,"maxAttempts":6}}"#)
+                .as_bytes(),
+        );
+        let r = e.handle_json_bytes(
+            format!(r#"{{"type":"unlock","id":2,"secret":"{GOOD}"}}"#).as_bytes(),
+        );
+        assert_eq!(r["state"], "unlocked");
+
+        // A WRONG secret while unlocked must NOT be reported as success — and
+        // it burns budget like any other failed attempt.
+        let r = e.handle_json_bytes(br#"{"type":"unlock","id":3,"secret":"not the passphrase"}"#);
+        assert_eq!(r["ok"], false);
+        assert_eq!(r["error"], "bad-secret");
+        assert_eq!(r["attemptsRemaining"], 5);
+
+        // The session itself stays unlocked (the caller already holds it).
+        let r = e.handle_json_bytes(br#"{"type":"status","id":4}"#);
+        assert_eq!(r["state"], "unlocked");
+        assert_eq!(r["attemptsRemaining"], 5);
+
+        // A correct re-auth succeeds and resets the budget.
+        let r = e.handle_json_bytes(
+            format!(r#"{{"type":"unlock","id":5,"secret":"{GOOD}"}}"#).as_bytes(),
+        );
+        assert_eq!(r["ok"], true);
+        assert_eq!(r["state"], "unlocked");
+        let r = e.handle_json_bytes(br#"{"type":"status","id":6}"#);
+        assert_eq!(r["attemptsRemaining"], 6);
     }
 }

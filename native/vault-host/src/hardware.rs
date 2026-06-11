@@ -189,8 +189,19 @@ impl HardwareSecretProvider for SoftwareFallback {
         let path = self.counter_path();
         match fs::read(&path) {
             Ok(b) if b.len() == 4 => Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]])),
-            Ok(_) => Ok(0),                 // corrupt/empty -> treat as zero
-            Err(_) => Ok(0),                // not yet written -> zero
+            // A counter file that EXISTS but is malformed is tampering or
+            // corruption — and "treat as zero" would hand back a full attempt
+            // budget, failing OPEN in exactly the direction the counter exists
+            // to prevent. Fail closed instead (same posture as a corrupt
+            // hardware secret above): the budget is unaccountable, so the
+            // vault is treated as erased. Writes are atomic (temp + rename),
+            // so a crash mid-update can never produce this state by itself.
+            Ok(_) => Err(VaultError::new(
+                crate::error::ErrorCode::Erased,
+                "attempt counter corrupt; failing closed — vault is treated as erased",
+            )),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(0), // never written yet
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -230,22 +241,47 @@ impl HardwareSecretProvider for SoftwareFallback {
     }
 }
 
+/// Sibling temp path used for atomic replacement (`<file>.tmp`).
+fn tmp_path(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".tmp");
+    PathBuf::from(name)
+}
+
+/// Best-effort fsync of `path`'s parent directory so a completed rename is
+/// itself durable. Directory handles are not openable on all platforms
+/// (Windows), so failures are ignored — the rename has already happened and
+/// the worst case is the pre-rename file after power loss, never a partial one.
+fn sync_parent_dir(path: &Path) {
+    if let Some(parent) = path.parent() {
+        if let Ok(d) = fs::File::open(parent) {
+            let _ = d.sync_all();
+        }
+    }
+}
+
 /// Write `data` to `path`, creating it with owner-only permissions where the
 /// platform supports it (Unix: 0o600). On non-Unix we fall back to a plain
 /// write; the installer-level permissions invariant (§11) still applies to the
-/// vault directory.
+/// vault directory. Atomic: written to a temp sibling, fsynced, then renamed
+/// into place, so the file is only ever absent, old, or complete.
 #[cfg(unix)]
 fn write_file_restricted(path: &Path, data: &[u8]) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
-    let mut f = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)?;
-    f.write_all(data)?;
-    f.flush()?;
-    f.sync_all()?;
+    let tmp = tmp_path(path);
+    {
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&tmp)?;
+        f.write_all(data)?;
+        f.flush()?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp, path)?;
+    sync_parent_dir(path);
     Ok(())
 }
 
@@ -257,18 +293,29 @@ fn write_file_restricted(path: &Path, data: &[u8]) -> Result<()> {
     write_file_durable(path, data)
 }
 
-/// Write `data` to `path` and fsync it so the bytes hit stable storage before we
-/// return. Used for the counter (rollback resistance) and as the non-Unix
-/// restricted-write fallback.
+/// Durably replace `path` with `data`: write to a temp sibling, fsync it, then
+/// atomically rename over the target and fsync the directory. Used for the
+/// counter (rollback resistance) and as the non-Unix restricted-write fallback.
+///
+/// The previous implementation truncated the target in place, which left a
+/// zero-length counter file in the window between truncate and write — and a
+/// zero-length file must fail closed (see `read_counter`), which would have
+/// turned a badly-timed power loss into an erased vault. Temp + rename means a
+/// crash yields either the old value or the new value, never a partial file.
 fn write_file_durable(path: &Path, data: &[u8]) -> Result<()> {
-    let mut f = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path)?;
-    f.write_all(data)?;
-    f.flush()?;
-    f.sync_all()?;
+    let tmp = tmp_path(path);
+    {
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp)?;
+        f.write_all(data)?;
+        f.flush()?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp, path)?;
+    sync_parent_dir(path);
     Ok(())
 }
 
@@ -506,5 +553,50 @@ mod tests {
         let meta = std::fs::metadata(d.path().join(SW_SECRET_FILE)).unwrap();
         let mode = meta.permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "secret file must be owner-read/write only");
+    }
+
+    #[test]
+    fn corrupt_counter_fails_closed() {
+        use crate::error::ErrorCode;
+        let d = tempdir().unwrap();
+        let p = SoftwareFallback::new(d.path());
+        assert_eq!(p.increment_counter().unwrap(), 1);
+        // Truncation (e.g. tampering) must NOT read back as a fresh budget.
+        for bad in [&[][..], &[1u8][..], &[1, 2, 3, 4, 5][..]] {
+            fs::write(d.path().join(SW_COUNTER_FILE), bad).unwrap();
+            let err = p.read_counter().expect_err("malformed counter must fail closed");
+            assert_eq!(err.code, ErrorCode::Erased, "fail-closed maps to erased");
+            assert!(p.increment_counter().is_err(), "increment must refuse too");
+        }
+    }
+
+    #[test]
+    fn counter_update_leaves_no_temp_file() {
+        let d = tempdir().unwrap();
+        let p = SoftwareFallback::new(d.path());
+        p.increment_counter().unwrap();
+        p.increment_counter().unwrap();
+        p.reset_counter().unwrap();
+        // Atomic replacement must clean up its temp sibling on the happy path.
+        assert!(!d.path().join(format!("{SW_COUNTER_FILE}.tmp")).exists());
+        assert_eq!(p.read_counter().unwrap(), 0);
+    }
+
+    #[test]
+    fn zeroed_secret_reads_as_erased() {
+        use crate::error::ErrorCode;
+        let d = tempdir().unwrap();
+        let p = SoftwareFallback::new(d.path());
+        let _ = p.hardware_secret().unwrap();
+        // Simulate a crash between invalidate()'s zero-overwrite and the file
+        // removal: a present-but-zeroed secret must read as erased, never be
+        // used to derive a KEK.
+        fs::write(d.path().join(SW_SECRET_FILE), [0u8; KEY_LEN]).unwrap();
+        let err = p.hardware_secret().expect_err("zeroed secret must fail");
+        assert_eq!(err.code, ErrorCode::Erased);
+        // And a short/corrupt secret likewise.
+        fs::write(d.path().join(SW_SECRET_FILE), [7u8; 5]).unwrap();
+        let err = p.hardware_secret().expect_err("short secret must fail");
+        assert_eq!(err.code, ErrorCode::Erased);
     }
 }
