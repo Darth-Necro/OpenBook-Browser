@@ -28,15 +28,17 @@ jobs:
           for t in tests/privacy-regression/test_*.py; do
             echo "== $t"; python3 "$t"
           done
+      - name: Release-layer gate (VERSION/changelog/workflow consistency)
+        run: python3 tests/release/test_release_layer.py
       - name: Leak gates (fail-closed simulation + four-control assertions)
         run: |
           python3 tests/leak/failclosed_sim.py
           python3 tests/leak/leak_assertions.py
       - name: Reproducible-build diff self-test
         run: python3 tests/repro/test_repro_diff.py
-      - name: Shell syntax (build + ci scripts)
+      - name: Shell syntax (build, ci, test, branding scripts)
         run: |
-          find build/scripts ci -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          find build/scripts ci tests branding -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
   native-tests:
     name: Native hosts (Rust)

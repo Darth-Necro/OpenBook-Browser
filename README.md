@@ -80,6 +80,20 @@ build/scripts/apply-patches.sh --source /tmp/openbook-upstream/firefox-145.0.2
 build/scripts/build.sh   --source /tmp/openbook-upstream/firefox-145.0.2 --target linux-x64
 ```
 
+## Releases
+
+Versioning is `<upstream-firefox>-<openbook-build>` (e.g. `145.0.2-1`; ADR-0017), with the
+`VERSION` file as the source of truth. Pushing tag `v<VERSION>` runs the release workflow:
+all gates re-run, and the component artifacts (extension XPIs, linux-x64 native hosts, the
+settings overlay tarball, CycloneDX SBOM, `SHA256SUMS`) are assembled deterministically into
+a **draft** GitHub release. Signing happens only on maintainer hardware (`build/scripts/sign.sh`),
+and the draft is published only after every box in `docs/RELEASE-CHECKLIST.md` is checked —
+including full per-OS browser builds, the live first-run egress test, the leak harness, the
+lockout acceptance run, the permissions-invariant audit, and the reproducible-build diff.
+
+To verify a published release: check `SHA256SUMS.asc` against the OpenBook release key, then
+`sha256sum -c SHA256SUMS --ignore-missing`. See `CHANGELOG.md` for what shipped.
+
 ## License
 
 OpenBook's own code is licensed **MPL-2.0** (see `LICENSE`), matching upstream Firefox to ease patch

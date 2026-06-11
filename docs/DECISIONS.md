@@ -116,3 +116,56 @@
 - **Options considered:** Modify `browser/branding/official/` in place; add a separate brand directory; AutoConfig display strings only.
 - **Rationale:** A separate branding directory isolates OpenBook identity from upstream and minimises rebase churn; mozconfig selection keeps the Firefox build system authoritative.
 - **Note:** Supersedes the earlier `moz.configure`-default branding patch (removed in the PR #2 ↔ #3 merge) in favour of explicit mozconfig selection plus `build.sh` asset staging.
+
+## ADR-0017 — Release versioning and tag-driven draft releases
+
+- **Date:** 2026-06-11
+- **Decision:** Version releases as `<upstream-firefox-version>-<openbook-build>`
+  (e.g. `145.0.2-1`), single source of truth in the root `VERSION` file, release
+  tags `v<VERSION>`. A `v*` tag triggers `.github/workflows/release.yml`, which
+  re-runs every offline gate and assembles the artifacts hosted CI can honestly
+  produce — deterministic extension XPIs, linux-x64 native-host binaries +
+  manifests, the settings overlay tarball (`package-components.sh`), a strict
+  CycloneDX SBOM, and `SHA256SUMS` — into a **draft** GitHub release. Signing
+  stays exclusively on maintainer hardware (`sign.sh`; keys in HSM/tokens, §11),
+  and full browser packages come from the per-OS build hosts; the draft is
+  published only after `docs/RELEASE-CHECKLIST.md` is fully checked.
+  `tests/release/test_release_layer.py` gates VERSION/pin/changelog/workflow
+  consistency in CI.
+- **Options considered:** Independent semver for the fork; upstream-version-suffix
+  scheme (LibreWolf-style); fully automated publish on tag; signing in CI with
+  repository secrets.
+- **Rationale:** The fork tracks upstream stable, so the upstream version is the
+  meaningful identity and the suffix the OpenBook iteration — matching the peer
+  forks users already understand. Draft-not-publish keeps the human checklist and
+  hardware-held signing as the final gate; publishing unsigned artifacts or
+  holding signing keys as CI secrets would each violate §11.
+
+## ADR-0018 — In-app updater off; remaining background egress disabled or documented
+
+- **Date:** 2026-06-11
+- **Decision:** Disable the in-app updater entirely (`DisableAppUpdate: true`,
+  locked `app.update.*` prefs, and `--disable-updater`/`--disable-crashreporter`
+  in the release mozconfigs; `--disable-default-browser-agent` on Windows).
+  Updates ship via the signed package channels chosen in ADR-0013 on the
+  MFSA-tracked 1–2 day SLA. Additionally: the system-add-on update pipeline is
+  locked off (OpenBook's bundled extensions update with the browser package);
+  the remaining fresh-profile endpoints are recorded as **documented
+  exceptions** in `openbook.cfg` §12 (Remote Settings/OneCRL, Safe Browsing
+  list updates, GMP fetches, AMO update checks for user-installed extensions,
+  and the user-configured DoH resolver), which the first-run egress test
+  enforces as the complete allowlist. Bundled extensions install via Mozilla's
+  `distribution/extensions/` mechanism instead of a speculative source patch.
+- **Options considered:** Keep the updater pointed at Mozilla (rejected:
+  unsolicited egress on a timer, and it would offer stock Firefox MARs to an
+  OpenBook install); stand up AUS/Balrog now (rejected: ADR-0013 already chose
+  package channels first); disable Remote Settings/Safe Browsing/GMP too
+  (rejected: each removes a security or core-function service — revoked-CA
+  protection, malware-list updates, codec/DRM — which is a worse user outcome
+  than their documented, history-free connections).
+- **Rationale:** "Zero telemetry / no unsolicited egress" is only auditable if
+  every endpoint is either off or explicitly justified; this ADR makes the
+  config layer match the distribution strategy and gives the egress test a
+  precise contract. Supersedes the earlier "keep updates on" posture in the
+  cfg/policy tests, whose security goal (patches keep flowing) is met by the
+  package channels instead.

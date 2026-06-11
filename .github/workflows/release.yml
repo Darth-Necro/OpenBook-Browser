@@ -1,0 +1,210 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# OpenBook release workflow (Build Plan §9, ADR-0017, docs/RELEASE-CHECKLIST.md).
+#
+# Trigger: a `v<VERSION>` tag (e.g. v145.0.2-1), or workflow_dispatch for a
+# dry-run that uploads the artifact set without creating a release.
+#
+# What this produces — the component artifacts this repository can honestly
+# build on a hosted runner: extension XPIs, linux-x64 native hosts + manifests,
+# the settings overlay tarball, a CycloneDX SBOM, and SHA256SUMS — attached to
+# a DRAFT GitHub release. It is a draft on purpose:
+#
+#   * SIGNING NEVER HAPPENS HERE. Keys live in HSM / hardware tokens only
+#     (§11); build/scripts/sign.sh runs on maintainer hardware and the .asc
+#     signatures are uploaded to the draft by hand.
+#   * Full browser builds (linux/win/macos) run on per-OS build hosts via
+#     build/scripts/{fetch-verify-upstream,apply-patches,build,package}.sh
+#     (see phase1.yml's manually-gated build path), with the live egress,
+#     leak, and lockout acceptance gates from the checklist.
+#
+# The draft is published only after every box in docs/RELEASE-CHECKLIST.md is
+# checked. Fail-hard posture: a tag/VERSION mismatch, a failing gate, or an
+# incomplete SBOM aborts the whole workflow.
+
+name: OpenBook Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-version:
+    name: Tag ↔ VERSION consistency (fail hard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: VERSION format and upstream-pin agreement
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          echo "VERSION file: $version"
+          [[ "$version" =~ ^[0-9]+(\.[0-9]+)*-[0-9]+$ ]] || {
+            echo "::error::VERSION '$version' is not <firefox-version>-<build>"; exit 1; }
+          pin="$(sed -n 's/^FIREFOX_VERSION="\([^"]*\)".*/\1/p' build/scripts/fetch-verify-upstream.sh | head -1)"
+          [[ "${version%-*}" == "$pin" ]] || {
+            echo "::error::VERSION prefix '${version%-*}' != upstream pin '$pin'"; exit 1; }
+      - name: Tag matches VERSION (tag builds only)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          [[ "${GITHUB_REF}" == "refs/tags/v${version}" ]] || {
+            echo "::error::Tag '${GITHUB_REF#refs/tags/}' does not match VERSION 'v${version}' — fix VERSION or re-tag"; exit 1; }
+      - name: CHANGELOG has a section for this version
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          grep -q "^## ${version}" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no '## ${version}' section"; exit 1; }
+
+  python-gates:
+    name: Privacy / leak / repro gates
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All offline Python gates
+        run: |
+          python3 tests/phase0/test_phase0_structure.py
+          for t in tests/privacy-regression/test_*.py tests/phase1/test_phase1_config.py \
+                   tests/release/test_release_layer.py; do
+            echo "== $t"; python3 "$t"
+          done
+          python3 tests/leak/failclosed_sim.py
+          python3 tests/leak/leak_assertions.py
+          python3 tests/repro/test_repro_diff.py
+      - name: Shell syntax
+        run: |
+          find build/scripts ci -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+  native-tests:
+    name: Native hosts (Rust)
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: vault-host + vpn-helper — test + clippy
+        run: |
+          cargo test   --locked --manifest-path native/vault-host/Cargo.toml
+          cargo clippy --locked --manifest-path native/vault-host/Cargo.toml --all-targets -- -D warnings
+          cargo test   --locked --manifest-path native/vpn-helper/Cargo.toml
+          cargo clippy --locked --manifest-path native/vpn-helper/Cargo.toml --all-targets -- -D warnings
+
+  extension-tests:
+    name: Extension (${{ matrix.ext }})
+    needs: verify-version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ext: [vault-ui, proxy-manager, ai-sidebar]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install, build, test
+        working-directory: extensions/${{ matrix.ext }}
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+  assemble:
+    name: Assemble component artifacts + SBOM
+    needs: [python-gates, native-tests, extension-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # draft-release creation only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Pinned toolchain for RELEASE binaries (supply chain §11): matches the
+      # vault-harness image; deps are already pinned by the committed lockfiles.
+      - uses: dtolnay/rust-toolchain@1.94
+      - name: Build all extensions
+        run: |
+          for ext in vault-ui proxy-manager ai-sidebar; do
+            npm --prefix "extensions/$ext" ci
+            npm --prefix "extensions/$ext" run build
+          done
+      - name: Install cargo-cyclonedx (release SBOM is CycloneDX, strict; pinned)
+        run: cargo install cargo-cyclonedx --version 0.5.7 --locked
+      - name: Assemble artifacts (deterministic) + strict SBOM + SHA256SUMS
+        run: |
+          build/scripts/package-components.sh --out dist/release --with-sbom
+      - name: Determinism self-check (re-assemble, byte-identical SHA256SUMS)
+        run: |
+          build/scripts/package-components.sh --out "$RUNNER_TEMP/release-2"
+          # The second run omits --with-sbom (SBOM tools embed timestamps);
+          # every artifact line must match exactly across the two runs.
+          grep -v -E '\.cdx\.json$' dist/release/SHA256SUMS | LC_ALL=C sort > "$RUNNER_TEMP/a"
+          LC_ALL=C sort "$RUNNER_TEMP/release-2/SHA256SUMS" > "$RUNNER_TEMP/b"
+          diff -u "$RUNNER_TEMP/a" "$RUNNER_TEMP/b"
+          echo "deterministic: artifact set is byte-identical across independent runs"
+      - name: Upload artifact set (always, incl. dry-runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbook-components
+          path: dist/release/
+          if-no-files-found: error
+      - name: Create DRAFT release with verification notes (tag builds only)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          tag="v${version}"
+          notes="$RUNNER_TEMP/notes.md"
+          # Changelog section for this version (between its heading and the next '## ').
+          awk -v ver="$version" '
+            $0 ~ "^## "ver { found=1; next }
+            found && /^## /  { exit }
+            found            { print }
+          ' CHANGELOG.md > "$notes"
+          cat >> "$notes" <<'NOTES'
+
+          ---
+
+          ## Verifying these artifacts
+
+          1. Download `SHA256SUMS` and `SHA256SUMS.asc` (the `.asc` appears once
+             maintainer signing is complete — this release stays a draft until then).
+          2. Verify the signature against the published OpenBook release key:
+             `gpg --verify SHA256SUMS.asc SHA256SUMS`
+          3. Verify every downloaded artifact: `sha256sum -c SHA256SUMS --ignore-missing`
+
+          The full browser packages (deb/rpm/flatpak/appimage, dmg/pkg, exe/msi) are
+          built on per-OS build hosts per `docs/RELEASE-CHECKLIST.md` and attached
+          before this draft is published.
+          NOTES
+          echo "The pinned upstream is Firefox \`${version%-*}\`, fetched and verified against Mozilla's signed SHA-256 manifest and detached signature." >> "$notes"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # NEVER overwrite assets on a PUBLISHED release: users may have
+            # already verified them. Re-runs may only refresh a draft.
+            is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "::error::release $tag is already PUBLISHED — refusing to overwrite its artifacts. Cut a new -<n+1> release instead."
+              exit 1
+            fi
+            echo "release $tag exists as a draft — refreshing artifacts (clobber)"
+            gh release upload "$tag" dist/release/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" dist/release/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --verify-tag \
+              --title "OpenBook ${version}" \
+              --notes-file "$notes"
+          fi
+          echo "DRAFT release $tag created. Publish only after docs/RELEASE-CHECKLIST.md is fully checked."
