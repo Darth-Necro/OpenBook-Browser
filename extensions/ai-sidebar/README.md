@@ -85,7 +85,9 @@ network calls possible are provider calls that happen **after** explicit opt-in
 - `src/registry.ts` — `getActiveProvider` / `networkAllowed`, `DEFAULT_SETTINGS`.
 - `src/promptguard.ts` — pure untrusted-content wrapping.
 - `src/actions.ts` — per-action confirmation gate.
-- `src/storage.ts` — settings persistence (off-by-default baseline merge).
+- `src/storage.ts` — settings persistence (off-by-default baseline merge). NOTE: a BYOK
+  `apiKey` is stored in plain `storage.local` (the browser profile). It is user-supplied,
+  never bundled; routing it through the vault host is a tracked hardening follow-up.
 - `sidebar.html` / `src/sidebar.ts` — the sidebar UI (disabled-state when off).
 - `settings.html` / `src/settings.ts` — opt-in toggle, provider pick, BYOK egress
   warning + acknowledgement, optional-permission request.

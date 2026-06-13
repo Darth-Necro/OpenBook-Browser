@@ -9,7 +9,8 @@ the irreversible key erasure happen in the Rust **native messaging host**
 commands.
 
 - Manifest: V2, id `vault-ui@openbook.browser`, Firefox 145+.
-- Permissions: `nativeMessaging`, `storage` (only the idle-lock preference).
+- Permissions: `nativeMessaging`, `storage` (only the idle-lock preference), and `idle`
+  (drives auto-lock when the user walks away).
 - No network access. No telemetry. The vault host name and the extension id are
   fixed by contract.
 

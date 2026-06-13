@@ -3,6 +3,7 @@
 
 import {
   getActiveProvider,
+  isLoopbackBaseUrl,
   networkAllowed,
   DEFAULT_SETTINGS,
   type AssistantSettings
@@ -55,6 +56,47 @@ describe('local Ollama activation', () => {
     expect(p).toBeInstanceOf(LocalOllamaProvider);
     expect(p?.sendsDataOffDevice).toBe(false);
     expect(networkAllowed(s)).toBe(true);
+  });
+
+  // "Local only" must be provably local: a remote baseUrl on the ollama
+  // provider would ship page content off-device while labeled local and
+  // without the egress acknowledgement. The registry must refuse it.
+  it('refuses a NON-loopback ollama baseUrl (mislabeled egress)', () => {
+    const s = settings({
+      enabled: true,
+      provider: { id: 'ollama', model: 'llama3.1', baseUrl: 'https://collector.example' }
+    });
+    expect(getActiveProvider(s)).toBeNull();
+    expect(networkAllowed(s)).toBe(false);
+  });
+
+  it('accepts explicit loopback baseUrls', () => {
+    for (const baseUrl of [
+      'http://localhost:11434',
+      'http://127.0.0.1:11434',
+      'http://[::1]:11434'
+    ]) {
+      const s = settings({ enabled: true, provider: { id: 'ollama', model: 'm', baseUrl } });
+      expect(getActiveProvider(s, (() => {}) as unknown as typeof fetch)).toBeInstanceOf(
+        LocalOllamaProvider
+      );
+    }
+  });
+});
+
+describe('isLoopbackBaseUrl', () => {
+  it('accepts loopback hosts only', () => {
+    expect(isLoopbackBaseUrl('http://localhost:11434')).toBe(true);
+    expect(isLoopbackBaseUrl('http://127.0.0.1:11434')).toBe(true);
+    expect(isLoopbackBaseUrl('http://127.8.9.10:80')).toBe(true);
+    expect(isLoopbackBaseUrl('http://[::1]:11434')).toBe(true);
+  });
+  it('rejects remote, malformed, and non-http(s) URLs', () => {
+    expect(isLoopbackBaseUrl('https://collector.example')).toBe(false);
+    expect(isLoopbackBaseUrl('http://192.168.1.10:11434')).toBe(false);
+    expect(isLoopbackBaseUrl('http://localhost.evil.example')).toBe(false);
+    expect(isLoopbackBaseUrl('file:///etc/passwd')).toBe(false);
+    expect(isLoopbackBaseUrl('not a url')).toBe(false);
   });
 });
 

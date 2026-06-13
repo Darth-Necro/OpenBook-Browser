@@ -9,34 +9,47 @@ Belt-and-suspenders for the zero-telemetry invariant (CLAUDE.md security
 invariant #1, docs/OpenBook-Browser-Build-Plan.md §10/§11). The locked
 AutoConfig (config/autoconfig/openbook.cfg) already sets the telemetry/Normandy
 enable flags off and blanks their server prefs. This patch additionally removes
-the *compiled-in default endpoint URLs* from the all-prefs file so that even a
-code path that ignored the runtime prefs has no Mozilla ingestion host baked in
-to contact. Empty string = nowhere to phone home.
+the *compiled-in default endpoint URLs* so that even a code path that ignored
+the runtime prefs has no Mozilla ingestion host baked in to contact. Empty
+string = nowhere to phone home.
 
-Endpoints neutralized: toolkit.telemetry.server (incoming.telemetry.mozilla.org),
-app.normandy.api_url (normandy.cdn.mozilla.net), toolkit.coverage.endpoint.base,
-and datareporting upload default flipped off.
+Endpoints neutralized at their actual compiled-in locations:
+  - toolkit.telemetry.server (modules/libpref/init/all.js)
+  - app.normandy.api_url + datareporting.healthreport.uploadEnabled
+    (browser/app/profile/firefox.js)
+(toolkit.coverage.* is opt-in and disabled at the cfg layer; not patched here
+to keep the series minimal.)
 
-NOTE: exact hunk context is rebased in CI against Firefox 145.0.2.
+Hunks anchor on the upstream pref lines themselves (the most stable strings in
+those files) with no surrounding context, so the series survives unrelated
+drift; apply-patches.sh enforces --fuzz=0 (exact line match, offsets allowed).
+Every OpenBook comment is an ADDITION — a patch must never list its own
+output as pre-existing context. Offsets are reconciled against the real
+firefox-145.0.2 tree by the rebase step (docs/RELEASE-CHECKLIST.md §3).
 ---
- modules/libpref/init/all.js | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ browser/app/profile/firefox.js | 5 +++--
+ modules/libpref/init/all.js    | 4 +++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/modules/libpref/init/all.js b/modules/libpref/init/all.js
 index 5555555..6666666 100644
 --- a/modules/libpref/init/all.js
 +++ b/modules/libpref/init/all.js
-@@ -2200,7 +2200,7 @@ pref("toolkit.telemetry.unified", true);
- // OpenBook: blank all compiled-in telemetry/experiment ingestion endpoints so
- // there is literally no Mozilla host to reach (docs §11). Runtime locks that
- // also disable the features live in openbook.cfg.
+@@ -2200,1 +2200,3 @@
 -pref("toolkit.telemetry.server", "https://incoming.telemetry.mozilla.org");
--pref("toolkit.coverage.endpoint.base", "https://coverage.mozilla.org");
--pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
--pref("datareporting.healthreport.uploadEnabled", true);
++// OpenBook: no compiled-in telemetry ingestion endpoint (zero-telemetry
++// invariant; runtime locks live in openbook.cfg).
 +pref("toolkit.telemetry.server", "");
-+pref("toolkit.coverage.endpoint.base", "");
+diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
+index 7777777..8888888 100644
+--- a/browser/app/profile/firefox.js
++++ b/browser/app/profile/firefox.js
+@@ -180,1 +180,2 @@
+-pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
++// OpenBook: no compiled-in Normandy/experiments endpoint.
 +pref("app.normandy.api_url", "");
+@@ -210,1 +210,1 @@
+-pref("datareporting.healthreport.uploadEnabled", true);
 +pref("datareporting.healthreport.uploadEnabled", false);
 --
 2.45.0

@@ -25,6 +25,9 @@ python3 tests/leak/leak_assertions.py
 
 # Phase 5 — reproducible-build diff harness self-test
 python3 tests/repro/test_repro_diff.py
+
+# Release layer — VERSION/changelog/workflow consistency
+python3 tests/release/test_release_layer.py
 ```
 
 ## Native hosts (Rust)
@@ -135,3 +138,19 @@ ci/mfsa-track.sh                                                             # C
 `package.sh` and `sign.sh` **fail closed** when a required packager or signing-key handle is missing —
 they never emit a half-signed or partial artifact. Signing keys live only in HSM/hardware tokens or
 platform signing services, never in the repo or CI plaintext (see `docs/SECURITY.md`).
+
+## Component release artifacts (no Firefox build host required)
+
+`build/scripts/package-components.sh` assembles, deterministically (sorted entries, normalized
+ownership, `SOURCE_DATE_EPOCH` timestamps — byte-identical per commit), the artifacts the release
+workflow attaches to a draft release:
+
+```bash
+# Prereqs: extensions built (npm run build), Rust toolchain for the native hosts.
+build/scripts/package-components.sh --out dist/release              # XPIs, hosts, overlay, SHA256SUMS
+build/scripts/package-components.sh --out dist/release --with-sbom  # + strict CycloneDX SBOM (release mode)
+```
+
+It **fails closed** on an unbuilt extension, a missing toolchain, a `VERSION` ↔ upstream-pin
+mismatch, or (under `--with-sbom`) an incomplete SBOM. Cutting a release is tag-driven — see
+`ci/release-pipeline.md` and `docs/RELEASE-CHECKLIST.md`.

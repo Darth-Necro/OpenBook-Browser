@@ -76,6 +76,14 @@ if [[ ! -r "$OPENBOOK_UPSTREAM_GPG_KEYRING" ]]; then
   echo "GPG keyring is not readable: $OPENBOOK_UPSTREAM_GPG_KEYRING" >&2
   exit 3
 fi
+# Resolve to an absolute path NOW: we `cd` into DEST_DIR below, where a
+# relative path would dangle — or worse, a bare filename would be resolved by
+# gpgv against ~/.gnupg, silently verifying with a DIFFERENT keyring than the
+# one we just checked.
+OPENBOOK_UPSTREAM_GPG_KEYRING="$(realpath -- "$OPENBOOK_UPSTREAM_GPG_KEYRING")" || {
+  echo "Could not resolve keyring path." >&2
+  exit 3
+}
 
 mkdir -p "$DEST_DIR"
 cd "$DEST_DIR"

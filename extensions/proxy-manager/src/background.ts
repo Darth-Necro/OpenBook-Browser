@@ -16,7 +16,7 @@ import {
   type ProbeResult,
   DEFAULT_STATE
 } from "./types.js";
-import { decideRequest, nextHealthState } from "./failclosed.js";
+import { decideRequest, isProbeRequest, nextHealthState } from "./failclosed.js";
 import { installProxyHandler } from "./proxy.js";
 import { applyWebRtcPolicy, webrtcPolicyFor } from "./leakcontrols.js";
 
@@ -25,11 +25,15 @@ const STORAGE_KEY = "proxyManagerState";
 const PROBE_INTERVAL_MS = 15_000;
 /** Probe timeout (ms). */
 const PROBE_TIMEOUT_MS = 5_000;
-/** Endpoint fetched THROUGH the proxy to confirm the path is alive. */
-const DEFAULT_CHECK_URL = "https://check.openbook.invalid/health";
 
 let state: ProxyManagerState = { ...DEFAULT_STATE };
 let probeTimer: ReturnType<typeof setInterval> | null = null;
+/**
+ * Exact URL of the probe currently in flight (carries a fresh random nonce),
+ * or null. The blocking listener exempts ONLY this URL from extension context
+ * (isProbeRequest) — and the proxy handler still routes it through the proxy.
+ */
+let activeProbeUrl: string | null = null;
 
 function getState(): ProxyManagerState {
   return state;
@@ -69,22 +73,43 @@ function classifyProbe(ok: boolean, errored: boolean): ProbeResult {
 }
 
 /**
- * Health-check: fetch the check URL. Because the proxy.onRequest handler routes
- * everything through the configured proxy, this fetch traverses the proxy; a
- * failure means the path is down → fail-closed blocks.
+ * Health-check: fetch the user-configured check URL THROUGH the proxy (the
+ * proxy handler routes the active probe via the configured endpoint even
+ * while health is unproven — that is the point of the probe). A failure means
+ * the path is down → fail-closed blocks. Without a user-supplied checkUrl no
+ * probe runs at all: health stays unproven and traffic stays blocked, and the
+ * popup says why. OpenBook ships no default probe endpoint (invariant 1).
  */
 async function runProbe(): Promise<void> {
   // Only probe when a proxy is enabled+configured; otherwise health is moot.
   if (!state.proxyEnabled || state.proxy === null) {
     return;
   }
-  const checkUrl = DEFAULT_CHECK_URL;
+  const checkUrl = state.proxy.checkUrl;
+  if (!checkUrl) {
+    return; // unprovable -> stays blocked; surfaced in the popup
+  }
+  if (activeProbeUrl !== null) {
+    return; // one probe at a time; the nonce exemption is single-use
+  }
+  // Per-probe random nonce: makes the exempted URL unguessable by pages and
+  // doubles as a cache-buster.
+  const nonce = crypto.getRandomValues(new Uint32Array(4)).join("-");
+  let probeUrl: string;
+  try {
+    const u = new URL(checkUrl);
+    u.searchParams.set("openbook-probe", nonce);
+    probeUrl = u.toString();
+  } catch {
+    return; // invalid stored URL: unprovable -> stays blocked
+  }
   let ok = false;
   let errored = false;
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  activeProbeUrl = probeUrl;
   try {
-    const res = await fetch(checkUrl, {
+    const res = await fetch(probeUrl, {
       method: "HEAD",
       cache: "no-store",
       signal: controller.signal
@@ -93,6 +118,7 @@ async function runProbe(): Promise<void> {
   } catch {
     errored = true;
   } finally {
+    activeProbeUrl = null;
     clearTimeout(t);
   }
   const probe = classifyProbe(ok, errored);
@@ -111,7 +137,15 @@ function startProbeLoop(): void {
 
 // --- Fail-closed blocking listener (leak control 4) -------------------------
 
-function onBeforeRequest(): browser.webRequest.BlockingResponse {
+function onBeforeRequest(
+  details: browser.webRequest._OnBeforeRequestDetails
+): browser.webRequest.BlockingResponse {
+  // The single deliberate exemption: the in-flight health probe (nonce URL,
+  // extension context). It is exempt from CANCELLATION only — the proxy
+  // handler still routes it through the proxy, so it cannot leak direct.
+  if (isProbeRequest({ url: details.url, tabId: details.tabId }, activeProbeUrl)) {
+    return { cancel: false };
+  }
   const decision = decideRequest(state);
   return { cancel: decision.cancel };
 }
@@ -172,11 +206,17 @@ browser.runtime.onMessage.addListener((message: unknown) =>
 );
 
 // --- Boot -------------------------------------------------------------------
+// ORDER MATTERS (invariant 2): the blocking listener and the proxy handler are
+// registered SYNCHRONOUSLY at module top level, BEFORE any await. The default
+// in-memory state is fail-closed (killSwitch on), so requests racing extension
+// startup (e.g. session restore) are blocked, never allowed direct. Loading
+// persisted state happens after — by then the gate is already up.
+
+installProxyHandler(getState, (details) => isProbeRequest(details, activeProbeUrl));
+installFailClosed();
 
 async function init(): Promise<void> {
   await loadState();
-  installProxyHandler(getState);
-  installFailClosed();
   await applyState();
   startProbeLoop();
 }

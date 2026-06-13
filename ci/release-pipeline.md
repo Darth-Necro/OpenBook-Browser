@@ -10,6 +10,23 @@ mismatch, a patch conflict, or a missing signing key **stops the release**.
 Pinned upstream: **Firefox 145.0.2** (the single pin lives in
 `build/scripts/fetch-verify-upstream.sh` and `ci/mfsa-track.sh`).
 
+## Versioning and triggering (ADR-0017)
+
+Releases are versioned `<upstream-firefox-version>-<openbook-build>`
+(e.g. `145.0.2-1`; a rebuild over the same upstream increments the suffix, a
+re-pin resets it to `-1`). The single source of truth is the **`VERSION`** file
+at the repo root; `tests/release/test_release_layer.py` fails CI if it drifts
+from the upstream pin or the changelog, and the release workflow
+(`.github/workflows/release.yml`) refuses a `v*` tag that does not match it.
+
+Pushing tag `v<VERSION>` runs every offline gate and assembles the component
+artifacts this repo can build on hosted runners — extension XPIs, linux-x64
+native hosts + manifests, the settings overlay tarball
+(`build/scripts/package-components.sh`, deterministic), a strict CycloneDX
+SBOM, and `SHA256SUMS` — into a **draft** GitHub release. Signing never runs
+in CI; full browser packages come from the per-OS build hosts. The draft is
+published only after `docs/RELEASE-CHECKLIST.md` is fully checked.
+
 ## Stages
 
 ```

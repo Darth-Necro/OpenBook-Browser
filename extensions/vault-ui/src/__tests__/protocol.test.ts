@@ -3,6 +3,7 @@
 
 import {
   VaultClient,
+  defaultIdGenerator,
   evaluateSecretStrength,
   isVaultResponse,
   isErrorResponse,
@@ -59,11 +60,11 @@ class FakePort implements PortLike {
   }
 }
 
-function makeClient(port: FakePort, opts: { seq?: () => string } = {}) {
+function makeClient(port: FakePort, opts: { seq?: () => number } = {}) {
   let n = 0;
   return new VaultClient({
     portFactory: () => port,
-    idGenerator: opts.seq ?? (() => `id-${++n}`),
+    idGenerator: opts.seq ?? (() => ++n),
     // 0 disables the per-request timer so tests that only inspect the outgoing
     // message (and never deliver a response) leave no pending real timeout.
     // The dedicated timeout test below constructs its own client.
@@ -73,23 +74,24 @@ function makeClient(port: FakePort, opts: { seq?: () => string } = {}) {
 
 describe('isVaultResponse', () => {
   it('accepts a well-formed envelope', () => {
-    expect(isVaultResponse({ id: 'x', ok: true })).toBe(true);
-    expect(isVaultResponse({ id: 'x', ok: false, error: 'bad-secret' })).toBe(true);
+    expect(isVaultResponse({ id: 7, ok: true })).toBe(true);
+    expect(isVaultResponse({ id: 7, ok: false, error: 'bad-secret' })).toBe(true);
   });
   it('rejects malformed values', () => {
     expect(isVaultResponse(null)).toBe(false);
     expect(isVaultResponse(undefined)).toBe(false);
     expect(isVaultResponse('nope')).toBe(false);
-    expect(isVaultResponse({ id: 1, ok: true })).toBe(false); // id not string
-    expect(isVaultResponse({ id: 'x' })).toBe(false); // missing ok
+    expect(isVaultResponse({ id: 'req-1', ok: true })).toBe(false); // id not a number
+    expect(isVaultResponse({ id: 1.5, ok: true })).toBe(false); // id not an integer
+    expect(isVaultResponse({ id: 7 })).toBe(false); // missing ok
     expect(isVaultResponse({ ok: true })).toBe(false); // missing id
   });
 });
 
 describe('isErrorResponse', () => {
   it('discriminates on ok', () => {
-    const ok: VaultResponse = { id: '1', ok: true, state: 'locked' };
-    const err: VaultResponse = { id: '2', ok: false, error: 'bad-secret' };
+    const ok: VaultResponse = { id: 1, ok: true, state: 'locked' };
+    const err: VaultResponse = { id: 2, ok: false, error: 'bad-secret' };
     expect(isErrorResponse(ok)).toBe(false);
     expect(isErrorResponse(err)).toBe(true);
   });
@@ -102,7 +104,7 @@ describe('VaultClient request serialization', () => {
     void client.setup({ secret: 'correct horse battery' });
     expect(port.lastSent).toMatchObject({
       type: 'setup',
-      id: 'id-1',
+      id: 1,
       secret: 'correct horse battery',
       maxAttempts: DEFAULT_MAX_ATTEMPTS,
       acknowledgeNoRecovery: true
@@ -121,13 +123,35 @@ describe('VaultClient request serialization', () => {
     const port = new FakePort();
     const client = makeClient(port);
     void client.status();
-    expect(port.lastSent).toMatchObject({ type: 'status', id: 'id-1' });
+    expect(port.lastSent).toMatchObject({ type: 'status', id: 1 });
     void client.unlock('hunter2hunter2');
     expect(port.lastSent).toMatchObject({ type: 'unlock', secret: 'hunter2hunter2' });
     void client.lock();
     expect(port.lastSent).toMatchObject({ type: 'lock' });
     void client.erase();
     expect(port.lastSent).toMatchObject({ type: 'erase', confirm: true });
+  });
+
+  // Host wire contract (org.openbook.vault_host): `id` is an i64 and MUST be a
+  // JSON number on the wire — the Rust host rejects string ids as
+  // invalid-request, and its responses always carry numeric ids. This is the
+  // regression test for the historical string-id mismatch that made every
+  // vault request time out against the real host.
+  it('emits a JSON-number id on the wire (host i64 contract)', () => {
+    const port = new FakePort();
+    const client = new VaultClient({ portFactory: () => port, requestTimeoutMs: 0 });
+    void client.status();
+    const wire = JSON.parse(JSON.stringify(port.lastSent)) as { id: unknown };
+    expect(typeof wire.id).toBe('number');
+    expect(Number.isSafeInteger(wire.id)).toBe(true);
+  });
+
+  it('default id generator yields increasing positive integers (0 is the host error-envelope id)', () => {
+    const a = defaultIdGenerator();
+    const b = defaultIdGenerator();
+    expect(Number.isSafeInteger(a)).toBe(true);
+    expect(a).toBeGreaterThan(0);
+    expect(b).toBeGreaterThan(a);
   });
 });
 
@@ -137,25 +161,25 @@ describe('VaultClient id-correlation', () => {
     const client = makeClient(port);
     const p1 = client.status();
     const p2 = client.unlock('passphrase-long');
-    expect(port.sent.map((m) => m.id)).toEqual(['id-1', 'id-2']);
+    expect(port.sent.map((m) => m.id)).toEqual([1, 2]);
 
     // Deliver an unrelated id first — must not resolve anything.
-    port.emit({ id: 'id-999', ok: true, state: 'unlocked' });
+    port.emit({ id: 999, ok: true, state: 'unlocked' });
     // Resolve p2 (id-2) BEFORE p1 to prove correlation isn't FIFO.
-    port.emit({ id: 'id-2', ok: true, state: 'unlocked' });
+    port.emit({ id: 2, ok: true, state: 'unlocked' });
     const r2 = await p2;
-    expect(r2).toEqual({ id: 'id-2', ok: true, state: 'unlocked' });
+    expect(r2).toEqual({ id: 2, ok: true, state: 'unlocked' });
 
-    port.emit({ id: 'id-1', ok: true, state: 'locked', hardware: 'tpm2', maxAttempts: 6, attemptsRemaining: 6 });
+    port.emit({ id: 1, ok: true, state: 'locked', hardware: 'tpm2', maxAttempts: 6, attemptsRemaining: 6 });
     const r1 = await p1;
-    expect(r1).toMatchObject({ id: 'id-1', ok: true, state: 'locked', hardware: 'tpm2' });
+    expect(r1).toMatchObject({ id: 1, ok: true, state: 'locked', hardware: 'tpm2' });
   });
 
   it('surfaces a bad-secret error response with attemptsRemaining + delayMs', async () => {
     const port = new FakePort();
     const client = makeClient(port);
     const p = client.unlock('wrong-passphrase');
-    port.emit({ id: 'id-1', ok: false, error: 'bad-secret', attemptsRemaining: 3, delayMs: 2000 });
+    port.emit({ id: 1, ok: false, error: 'bad-secret', attemptsRemaining: 3, delayMs: 2000 });
     const r = await p;
     expect(r.ok).toBe(false);
     if (!r.ok) {
@@ -172,7 +196,7 @@ describe('VaultClient id-correlation', () => {
     port.emit('garbage');
     port.emit({ not: 'a response' });
     // Now a valid one.
-    port.emit({ id: 'id-1', ok: true, state: 'locked', hardware: 'software', maxAttempts: 6, attemptsRemaining: 6 });
+    port.emit({ id: 1, ok: true, state: 'locked', hardware: 'software', maxAttempts: 6, attemptsRemaining: 6 });
     const r = await p;
     expect(r.ok).toBe(true);
   });
@@ -201,7 +225,7 @@ describe('VaultClient id-correlation', () => {
     const port = new FakePort();
     const client = new VaultClient({
       portFactory: () => port,
-      idGenerator: () => 'id-1',
+      idGenerator: () => 1,
       requestTimeoutMs: 1000
     });
     const p = client.status();

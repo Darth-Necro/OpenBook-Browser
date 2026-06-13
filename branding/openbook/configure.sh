@@ -12,8 +12,18 @@
 # Mozilla trademark: per docs/OpenBook-Browser-Build-Plan.md §13 the rebrand is
 # mandatory, not cosmetic.
 
+# Internal application name: binary name, profile dir component, lowercase, no
+# spaces. Distinct from the display name below.
+MOZ_APP_NAME=openbook
+
 # Human-facing product name shown in the title bar, About dialog and OS menus.
 MOZ_APP_DISPLAYNAME=OpenBook
+
+# macOS .app bundle name derived from the display name.
+MOZ_MACBUNDLE_NAME=OpenBook.app
+
+# Stable application id (XULAppData). OpenBook's own GUID — never Firefox's.
+MOZ_APP_ID={c2e00de3-2c7b-4bfe-8a57-4c38e1b3a1a0}
 
 # Vendor string baked into the application. Used for profile/registry paths,
 # update URLs and the "by <vendor>" strings. OpenBook is its own vendor; it is
@@ -40,6 +50,9 @@ MOZ_OFFICIAL_BRANDING_DIRECTORY=browser/branding/openbook
 
 # Do not let any upstream "official branding" trademark switch flip us back to
 # Firefox art. OpenBook art is the only art we ship.
+export MOZ_APP_NAME
+export MOZ_MACBUNDLE_NAME
+export MOZ_APP_ID
 export MOZ_APP_DISPLAYNAME
 export MOZ_APP_VENDOR
 export MOZ_APP_REMOTINGNAME

@@ -13,6 +13,13 @@ export interface ProxyConfig {
   proxyDNS: boolean;
   /** Optional username for proxy auth (passed to Firefox proxy auth, not here). */
   username?: string;
+  /**
+   * User-chosen HTTPS URL fetched THROUGH the proxy to prove the path is
+   * alive. OpenBook ships no default endpoint (shipping one would hardcode
+   * unsolicited egress to a third party — invariant 1); without it the proxy
+   * cannot be proven healthy and fail-closed keeps blocking.
+   */
+  checkUrl?: string;
 }
 
 /** Health-check probe outcome. */

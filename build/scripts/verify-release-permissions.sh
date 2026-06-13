@@ -45,6 +45,24 @@ done
 [[ -d "$ROOT" ]] || { echo "root directory does not exist: $ROOT" >&2; exit 3; }
 
 rc=0
+check_dir_chain() {
+  # check_dir_chain FILE — every directory from FILE's parent up to (and
+  # including) $ROOT must also be root-owned and not group/other-writable.
+  # A root-owned 0644 openbook.cfg inside a user-writable directory is still
+  # replaceable (rename + recreate), so the §11 invariant is only met when
+  # the whole containing chain is locked down.
+  local d uid mode
+  d="$(dirname -- "$1")"
+  while :; do
+    uid="$(stat -c '%u' "$d")"
+    mode="$(stat -c '%a' "$d")"
+    if [[ "$uid" != "0" ]]; then echo "$PROG: parent dir NOT root-owned (uid=$uid): $d" >&2; rc=5; fi
+    if (( 0$mode & 022 )); then echo "$PROG: parent dir group/other-writable (mode=$mode): $d" >&2; rc=5; fi
+    [[ "$d" == "$ROOT" || "$d" == "/" || "$d" == "." ]] && break
+    d="$(dirname -- "$d")"
+  done
+}
+
 check() {
   # check FILE REQUIRED(required|optional)
   local f="$1" required="$2" uid mode
@@ -59,6 +77,7 @@ check() {
   mode="$(stat -c '%a' "$f")"
   if [[ "$uid" != "0" ]]; then echo "$PROG: NOT root-owned (uid=$uid): $f" >&2; rc=5; fi
   if (( 0$mode & 022 )); then echo "$PROG: group/other-writable (mode=$mode): $f" >&2; rc=5; fi
+  check_dir_chain "$f"
 }
 
 # Required Phase 1 hardening layer.

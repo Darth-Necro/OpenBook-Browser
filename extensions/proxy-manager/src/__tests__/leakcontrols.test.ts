@@ -44,6 +44,27 @@ describe('resolveProxyInfo (DNS leak control)', () => {
     const info = resolveProxyInfo(state({ proxyEnabled: false, killSwitch: false }));
     expect(info.type).toBe('direct');
   });
+
+  // The health probe must MEASURE the proxy path: it is routed through the
+  // configured proxy even while health is unproven (otherwise the probe tests
+  // the direct path and health is meaningless), and it can never go direct.
+  it('routes the active probe THROUGH the proxy even when health is failing', () => {
+    const info = resolveProxyInfo(
+      state({ proxyEnabled: true, proxy: socks, health: 'failing' }),
+      { isProbe: true }
+    );
+    expect(info.type).toBe('socks');
+    expect(info.host).toBe('127.0.0.1');
+    expect(info.proxyDNS).toBe(true);
+  });
+
+  it('probe flag changes nothing when no proxy is configured (no direct leak)', () => {
+    const info = resolveProxyInfo(
+      state({ proxyEnabled: false, killSwitch: true, proxy: null }),
+      { isProbe: true }
+    );
+    expect(info.type).toBe('direct'); // and the blocking listener cancels it
+  });
 });
 
 describe('webrtcPolicyFor (WebRTC leak control)', () => {

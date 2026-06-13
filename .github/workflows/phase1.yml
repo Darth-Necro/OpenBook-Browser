@@ -10,6 +10,10 @@ on:
         description: "Set to 'true' to execute a full Firefox build"
         required: false
         default: "false"
+      run_patch_apply_smoke:
+        description: "Set to 'true' to fetch+verify upstream and test the patch series applies (no build — minutes, not hours)"
+        required: false
+        default: "false"
 
 jobs:
   config-checks:
@@ -36,6 +40,37 @@ jobs:
         run: |
           test -x build/scripts/install-config.sh
           bash -n build/scripts/install-config.sh
+
+  # Catches a stale patch series (the most common fork breakage) in minutes
+  # without paying for a build: fetch + verify the pinned tarball, then run
+  # apply-patches.sh, which fails hard on the first conflict. Run this after
+  # every patch edit and on every upstream re-pin (RELEASE-CHECKLIST §3).
+  patch-apply-smoke:
+    name: "Patch series applies against pinned upstream (no build)"
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_patch_apply_smoke == 'true' || inputs.run_full_firefox_build == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Materialize Mozilla release signing keyring"
+        shell: bash
+        env:
+          MOZILLA_RELEASE_KEYRING_B64: ${{ secrets.OPENBOOK_UPSTREAM_GPG_KEYRING_B64 }}
+        run: |
+          if [[ -z "${MOZILLA_RELEASE_KEYRING_B64:-}" ]]; then
+            echo "::error::Set OPENBOOK_UPSTREAM_GPG_KEYRING_B64 (base64 of the Mozilla release signing keyring) first."
+            exit 1
+          fi
+          keyring="$RUNNER_TEMP/mozilla-release-signing.gpg"
+          printf '%s' "$MOZILLA_RELEASE_KEYRING_B64" | base64 -d > "$keyring"
+          echo "OPENBOOK_UPSTREAM_GPG_KEYRING=$keyring" >> "$GITHUB_ENV"
+      - name: "Fetch and verify upstream Firefox source"
+        shell: bash
+        run: build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
+      - name: "Apply the OpenBook patch series (fail hard on conflict)"
+        shell: bash
+        run: |
+          build/scripts/apply-patches.sh \
+            --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
 
   build-path:
     name: "Phase 1 full Firefox build (${{ matrix.target }})"

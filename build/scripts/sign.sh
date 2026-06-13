@@ -126,13 +126,20 @@ case "$TARGET" in
     # a gpg-agent backed by an HSM/hardware token; we only reference its id.
     require_tool gpg "Install GnuPG; the private key must live in a hardware-backed gpg-agent, not on disk."
     require_env OPENBOOK_GPG_KEY_ID "Export the GPG key id/fingerprint of the hardware-backed release key."
-    # Checksum tool: prefer sha256sum, fall back to 'shasum -a 256'.
+    # Checksum tool: prefer sha256sum, fall back to 'shasum -a 256'. Hash the
+    # BASENAME from inside the artifact's directory so the .sha256 contains a
+    # relative name a downloader can verify with `sha256sum -c` (a build-host
+    # absolute path in the file would never match on their machine).
+    artifact_dir="$(dirname -- "$ARTIFACT")"
+    artifact_name="$(basename -- "$ARTIFACT")"
     if command -v sha256sum >/dev/null 2>&1; then
       echo "$PROG: writing SHA-256 checksum -> ${ARTIFACT}.sha256"
-      sha256sum "$ARTIFACT" > "${ARTIFACT}.sha256" || die 6 "sha256sum failed"
+      (cd "$artifact_dir" && sha256sum "$artifact_name" > "${artifact_name}.sha256") \
+        || die 6 "sha256sum failed"
     elif command -v shasum >/dev/null 2>&1; then
       echo "$PROG: writing SHA-256 checksum -> ${ARTIFACT}.sha256"
-      shasum -a 256 "$ARTIFACT" > "${ARTIFACT}.sha256" || die 6 "shasum failed"
+      (cd "$artifact_dir" && shasum -a 256 "$artifact_name" > "${artifact_name}.sha256") \
+        || die 6 "shasum failed"
     else
       die 4 "no SHA-256 tool found (need 'sha256sum' or 'shasum')."
     fi
@@ -148,41 +155,45 @@ case "$TARGET" in
     # Authenticode. On Windows use signtool with a cert thumbprint resolved from
     # the cert store / HSM. Cross-platform fallback: osslsigncode with a PKCS#11
     # HSM reference. We never accept a raw key file path.
+    #
+    # FAIL CLOSED until the invocation is implemented and validated on a real
+    # Windows signing host: exiting 0 here would leave the artifact UNSIGNED
+    # while telling the pipeline it was signed — exactly what this script's
+    # contract forbids. Intended invocations, for the implementer:
+    #   signtool sign /sha1 "$OPENBOOK_WIN_CERT_THUMBPRINT" /fd sha256 \
+    #     /tr <RFC3161-timestamp-url> /td sha256 "<artifact>"
+    #   osslsigncode sign -pkcs11module <hsm.so> -certs <cert> -h sha256 \
+    #     -t <timestamp-url> -in "<artifact>" -out "<artifact>.signed"
     if command -v signtool >/dev/null 2>&1; then
       require_env OPENBOOK_WIN_CERT_THUMBPRINT \
         "Export the Authenticode cert thumbprint present in the Windows cert store / HSM."
-      echo "$PROG: Authenticode signing via signtool (thumbprint: \$OPENBOOK_WIN_CERT_THUMBPRINT)"
-      echo "$PROG: TODO(Windows host): signtool sign /sha1 \"\$OPENBOOK_WIN_CERT_THUMBPRINT\" \\"
-      echo "$PROG:   /fd sha256 /tr <RFC3161-timestamp-url> /td sha256 \"$ARTIFACT\""
-      echo "$PROG: (EV cert in HSM strongly preferred to avoid SmartScreen friction — §8.)"
     elif command -v osslsigncode >/dev/null 2>&1; then
       require_env OPENBOOK_WIN_CERT \
         "Export a PKCS#11/HSM certificate reference for osslsigncode (never a plaintext .pfx in repo/CI)."
-      echo "$PROG: Authenticode signing via osslsigncode (HSM cert ref: \$OPENBOOK_WIN_CERT)"
-      echo "$PROG: TODO(host): osslsigncode sign -pkcs11module <hsm.so> -certs <cert> \\"
-      echo "$PROG:   -h sha256 -t <timestamp-url> -in \"$ARTIFACT\" -out \"${ARTIFACT}.signed\""
     else
       die 4 "no Authenticode tool found (need 'signtool' on Windows or 'osslsigncode' cross-platform)."
     fi
-    echo "$PROG: Windows signing orchestration complete."
+    die 6 "Windows Authenticode signing not implemented yet — refusing to report an unsigned artifact as signed (fail closed)"
     ;;
 
   macos-universal)
     # codesign with a Developer ID identity (in the Keychain), then notarize and
     # staple. Gatekeeper blocks un-notarized apps, so all three are required.
+    #
+    # FAIL CLOSED until implemented on a real macOS signing host (same contract
+    # as win-x64 above). Intended sequence, for the implementer:
+    #   codesign --force --options runtime --timestamp \
+    #     --sign "$OPENBOOK_MACOS_IDENTITY" "<artifact>"
+    #   xcrun notarytool submit "<artifact>" \
+    #     --keychain-profile "$OPENBOOK_NOTARY_PROFILE" --wait
+    #   xcrun stapler staple "<artifact>"
     require_tool codesign "Run on macOS with Xcode command line tools (provides codesign)."
     require_tool xcrun "Run on macOS with Xcode command line tools (provides xcrun/notarytool/stapler)."
     require_env OPENBOOK_MACOS_IDENTITY \
       "Export the 'Developer ID Application' identity name present in the signing Keychain."
     require_env OPENBOOK_NOTARY_PROFILE \
       "Export the notarytool keychain profile name holding the Apple notarization credentials."
-    echo "$PROG: codesign (identity: \$OPENBOOK_MACOS_IDENTITY) — hardened runtime, deep, timestamped"
-    echo "$PROG: TODO(macOS host): codesign --force --options runtime --timestamp \\"
-    echo "$PROG:   --sign \"\$OPENBOOK_MACOS_IDENTITY\" \"$ARTIFACT\""
-    echo "$PROG: notarize: xcrun notarytool submit \"$ARTIFACT\" \\"
-    echo "$PROG:   --keychain-profile \"\$OPENBOOK_NOTARY_PROFILE\" --wait"
-    echo "$PROG: staple:  xcrun stapler staple \"$ARTIFACT\""
-    echo "$PROG: macOS signing orchestration complete (codesign + notarize + staple)."
+    die 6 "macOS codesign/notarize/staple not implemented yet — refusing to report an unsigned artifact as signed (fail closed)"
     ;;
 esac
 

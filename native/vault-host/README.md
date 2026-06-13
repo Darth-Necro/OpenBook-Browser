@@ -94,7 +94,17 @@ hardware_secret : 32 bytes from the HardwareSecretProvider (TPM2 / Secure Enclav
 - **Container:** XChaCha20-Poly1305 under MK; AAD `openbook-vault-container-v1`;
   stored as `nonce || ciphertext||tag` in `container.enc`.
 - **Counter:** monotonic; incremented BEFORE each unlock attempt and persisted
-  immediately (power-cycling cannot roll it back); reset to 0 only on success.
+  durably via atomic temp+rename (a crash/power loss yields the old or the new
+  value, never a truncated file); reset to 0 only on success. A counter file
+  that exists but is malformed is treated as tampering and **fails closed to
+  the erased state** — "treat as zero" would hand an attacker a fresh budget.
+  (Out-of-band restore of the counter file is still possible in software mode;
+  see the honest limits below.)
+- **`unlock` is a real re-authentication, even while unlocked:** it re-derives
+  and verifies the secret under the same counter policy (increment first, reset
+  on success, erase at the limit). A failed re-auth keeps the session unlocked
+  (the caller already holds it) but burns budget; success never depends on the
+  vault's current state, so the verb is safe to gate sensitive re-actions on.
 - **Cryptographic erasure (final failed attempt OR explicit erase), in order:**
   1. **Invalidate the hardware-sealed secret FIRST** → the KEK becomes
      underivable and the wrapped MK is permanently undecryptable.

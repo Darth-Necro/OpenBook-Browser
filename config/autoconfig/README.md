@@ -26,9 +26,11 @@ packaging step copy these into place; see the per-platform packaging scripts in
      byte-rotated (ROT-13-ish) to discourage casual edits. `0` means **plain
      text**, which is what we want: the config must be auditable. Obscuring is
      not a security control (the permissions invariant is).
-   - `general.config.sandbox_enabled = false` — required so the `.cfg` can use
-     the full AutoConfig API (`lockPref`, `getPref`, etc.) rather than a
-     restricted sandbox.
+   - The AutoConfig **sandbox stays enabled** (the default). The sandbox
+     provides `pref`/`defaultPref`/`lockPref`/`clearPref` — everything
+     `openbook.cfg` uses — so disabling it (as some templates do) would grant
+     the config full chrome privilege for no functional gain. Least privilege
+     applies to our own config too (§11).
 2. Firefox then loads and **executes `openbook.cfg` as privileged JavaScript**
    with chrome privileges, applying every `pref` / `defaultPref` / `lockPref`
    call.

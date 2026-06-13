@@ -36,6 +36,18 @@
         </div>
       </div>
 
+      <label for="checkurl">Health-check URL (HTTPS, fetched through the proxy)</label>
+      <input
+        id="checkurl"
+        type="url"
+        placeholder="https://example.org/ — required for the proxy to be provably healthy"
+      />
+      <p class="muted">
+        OpenBook ships no default check endpoint (zero unsolicited connections).
+        Pick a URL you trust; until a check succeeds through the proxy,
+        fail-closed keeps traffic blocked.
+      </p>
+
       <div class="check">
         <input id="enabled" type="checkbox" />
         <label for="enabled">Route this profile through the proxy</label>
