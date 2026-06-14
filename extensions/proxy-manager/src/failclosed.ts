@@ -119,7 +119,10 @@ export function isValidEndpoint(host: string, port: number): boolean {
 
 /**
  * Validate a user-supplied health-check URL. PURE.
- * HTTPS only (the probe must not be downgradable), no embedded credentials.
+ * HTTPS only (the probe must not be downgradable), no embedded credentials,
+ * and no fragment: the probe matches the in-flight request by exact-string
+ * equality with the network-layer details.url, which never carries a fragment,
+ * so a stored fragment would make the probe cancel itself (permanent block).
  */
 export function isValidCheckUrl(url: string): boolean {
   if (typeof url !== "string" || url.trim().length === 0) return false;
@@ -131,6 +134,7 @@ export function isValidCheckUrl(url: string): boolean {
   }
   if (parsed.protocol !== "https:") return false;
   if (parsed.username !== "" || parsed.password !== "") return false;
+  if (parsed.hash !== "") return false;
   return true;
 }
 
