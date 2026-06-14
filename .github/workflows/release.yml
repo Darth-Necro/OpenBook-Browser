@@ -56,7 +56,17 @@ jobs:
       - name: CHANGELOG has a section for this version
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
-          grep -q "^## ${version}" CHANGELOG.md || {
+          # Match "## <version>" LITERALLY (awk index, not a regex): the version
+          # contains '.' and '-' which as a regex would match any char and let a
+          # near-identical heading (e.g. '## 145.0.2-10') satisfy '145.0.2-1'.
+          # Require the heading to end there or be followed by a space.
+          awk -v ver="## $version" '
+            index($0, ver) == 1 {
+              n = substr($0, length(ver) + 1, 1)
+              if (n == "" || n == " ") found = 1
+            }
+            END { exit(found ? 0 : 1) }
+          ' CHANGELOG.md || {
             echo "::error::CHANGELOG.md has no '## ${version}' section"; exit 1; }
 
   python-gates:
@@ -143,15 +153,23 @@ jobs:
       - name: Assemble artifacts (deterministic) + strict SBOM + SHA256SUMS
         run: |
           build/scripts/package-components.sh --out dist/release --with-sbom
-      - name: Determinism self-check (re-assemble, byte-identical SHA256SUMS)
+      - name: Determinism self-check (re-assemble, byte-identical artifacts)
         run: |
-          build/scripts/package-components.sh --out "$RUNNER_TEMP/release-2"
-          # The second run omits --with-sbom (SBOM tools embed timestamps);
-          # every artifact line must match exactly across the two runs.
-          grep -v -E '\.cdx\.json$' dist/release/SHA256SUMS | LC_ALL=C sort > "$RUNNER_TEMP/a"
+          # Re-assemble WITHOUT the native build and WITHOUT the SBOM. The Rust
+          # release binaries are only bit-reproducible inside the pinned repro
+          # container (that is the repro gate's job — RELEASE-CHECKLIST §5); a
+          # second `cargo build --release` on a generic hosted runner can differ
+          # and would false-fail this check (today it only passes by virtue of
+          # cargo's build cache). SBOM tools embed timestamps, so they're out too.
+          # This step asserts the determinism this script DOES own: the extension
+          # XPIs and the settings-overlay tarball are byte-identical across runs.
+          build/scripts/package-components.sh --out "$RUNNER_TEMP/release-2" --skip-native
+          # Compare only the files the second (native-free, SBOM-free) run made.
           LC_ALL=C sort "$RUNNER_TEMP/release-2/SHA256SUMS" > "$RUNNER_TEMP/b"
+          awk '{print $2}' "$RUNNER_TEMP/b" > "$RUNNER_TEMP/names"
+          grep -F -f "$RUNNER_TEMP/names" dist/release/SHA256SUMS | LC_ALL=C sort > "$RUNNER_TEMP/a"
           diff -u "$RUNNER_TEMP/a" "$RUNNER_TEMP/b"
-          echo "deterministic: artifact set is byte-identical across independent runs"
+          echo "deterministic: XPIs + settings overlay are byte-identical across independent runs"
       - name: Upload artifact set (always, incl. dry-runs)
         uses: actions/upload-artifact@v4
         with:
@@ -166,9 +184,12 @@ jobs:
           version="$(tr -d '[:space:]' < VERSION)"
           tag="v${version}"
           notes="$RUNNER_TEMP/notes.md"
-          # Changelog section for this version (between its heading and the next '## ').
-          awk -v ver="$version" '
-            $0 ~ "^## "ver { found=1; next }
+          # Changelog section for this version (between its heading and the next
+          # '## '). Match the heading LITERALLY (index, not regex) so the '.'/'-'
+          # in the version cannot act as wildcards and latch onto the wrong
+          # section; require the heading to end or be followed by a space.
+          awk -v ver="## $version" '
+            index($0, ver) == 1 && (substr($0, length(ver)+1, 1) == "" || substr($0, length(ver)+1, 1) == " ") { found=1; next }
             found && /^## /  { exit }
             found            { print }
           ' CHANGELOG.md > "$notes"

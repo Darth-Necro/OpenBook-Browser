@@ -56,6 +56,11 @@ done
 
 [[ -n "$DIST" ]] || { echo "--dist is required." >&2; usage >&2; exit 2; }
 [[ -d "$DIST" ]] || { echo "dist directory does not exist: $DIST" >&2; exit 3; }
+# Canonicalize so the §11 dir-chain walk's stop condition (d == DIST) matches
+# dirname's normalized output: a trailing slash (e.g. --dist /opt/openbook/) or
+# a symlinked component would otherwise send the walk above DIST and spuriously
+# fail an otherwise-correct install.
+DIST="$(realpath -- "$DIST")" || { echo "cannot resolve --dist: $DIST" >&2; exit 3; }
 
 src_autoconfig="$REPO_ROOT/config/autoconfig/autoconfig.js"
 src_cfg="$REPO_ROOT/config/autoconfig/openbook.cfg"

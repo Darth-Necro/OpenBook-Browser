@@ -201,6 +201,11 @@ with zipfile.ZipFile(out_xpi, "w", zipfile.ZIP_DEFLATED) as zf:
         zi = zipfile.ZipInfo(rel, date_time=zip_time)
         zi.external_attr = 0o644 << 16
         zi.compress_type = zipfile.ZIP_DEFLATED
+        # Pin create_system: ZipInfo defaults it to 0 on Windows and 3 elsewhere,
+        # which would store a host-dependent byte and break byte-for-byte repro
+        # across OSes (an independent rebuild on macOS/Windows would mismatch a
+        # Linux release for otherwise-identical input). Fix it to 3 (Unix).
+        zi.create_system = 3
         zf.writestr(zi, data)
 print(f"  {os.path.basename(out_xpi)}: {len(entries)} files")
 PY

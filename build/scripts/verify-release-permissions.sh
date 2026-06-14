@@ -43,6 +43,11 @@ done
 
 [[ -n "$ROOT" ]] || { echo "--root is required." >&2; usage >&2; exit 2; }
 [[ -d "$ROOT" ]] || { echo "root directory does not exist: $ROOT" >&2; exit 3; }
+# Canonicalize so the dir-chain walk's stop condition (d == ROOT) actually
+# matches dirname's normalized output: a trailing slash (e.g. --root /stage/)
+# or a symlinked component would otherwise never equal the sentinel, sending
+# the walk above the staging root and false-failing a correct package.
+ROOT="$(realpath -- "$ROOT")" || { echo "cannot resolve --root: $ROOT" >&2; exit 3; }
 
 rc=0
 check_dir_chain() {
