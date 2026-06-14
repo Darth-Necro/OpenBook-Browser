@@ -88,5 +88,7 @@ npm run lint    # web-ext lint -s dist (best-effort; needs a built dist)
   for jest.
 - Wire the OS-WireGuard exit-IP verification path (Option 1) — a separate
   surface from this per-profile proxy.
-- The check-endpoint URL is a placeholder (`check.openbook.invalid`); the
-  release config supplies a real, operator-controlled health endpoint.
+- The health-check URL is **user-supplied per profile** — OpenBook ships no
+  default probe endpoint (a hardcoded one would be unsolicited egress to a third
+  party, invariant 1). Until the user sets one and a probe succeeds through the
+  proxy, fail-closed keeps traffic blocked and the popup says why.
