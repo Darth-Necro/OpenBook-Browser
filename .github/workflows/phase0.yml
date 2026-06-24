@@ -12,17 +12,25 @@ on:
         type: choice
         options: ["false", "true"]
 
+permissions:
+  contents: read
+
 jobs:
   static-checks:
     name: Static Phase 0 checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@v4.2.2 — pin to commit SHA for supply-chain hardening.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Validate repository scaffold
         run: python3 tests/phase0/test_phase0_structure.py
       - name: Validate shell syntax
         run: find build/scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
+  # Full Firefox builds require ~16GB RAM and ~50GB disk — beyond GitHub-hosted
+  # runners. This job is intended for a self-hosted runner labeled
+  # `openbook-build`; the `runs-on` matrix here is a placeholder until that
+  # infrastructure is provisioned. See docs/DECISIONS.md ADR-0007.
   build-path:
     name: Unmodified Firefox build path (${{ matrix.target }})
     needs: static-checks
@@ -39,7 +47,7 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Materialize Mozilla release signing keyring
         shell: bash
         env:
@@ -61,4 +69,7 @@ jobs:
         run: |
           build/scripts/fetch-verify-upstream.sh --dest "$RUNNER_TEMP/openbook-upstream"
           build/scripts/apply-patches.sh --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+          cd "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2"
+          ./mach --no-interactive bootstrap --application-choice browser
+          cd "$GITHUB_WORKSPACE"
           build/scripts/build.sh --source "$RUNNER_TEMP/openbook-upstream/firefox-145.0.2" --target "${{ matrix.target }}"

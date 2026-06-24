@@ -1,0 +1,9 @@
+# Ordered patch series. apply-patches.sh reads this file when present and it is
+# authoritative: it MUST list every patch, in apply order (branding, then
+# privacy, then features). Entries are paths relative to patches/; blank lines
+# and '#' comments are ignored. Keep in sync when adding/removing a patch.
+
+branding/0001-branding-add-openbook-brand-directory.patch
+branding/0002-neutral-default-bookmarks-and-start.patch
+privacy/0001-remove-default-telemetry-endpoints.patch
+features/0002-register-native-messaging-hosts.patch

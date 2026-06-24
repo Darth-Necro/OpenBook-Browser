@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import os
 import stat
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,11 +78,13 @@ def main() -> None:
             assert_executable(script)
 
     assert_contains("build/scripts/fetch-verify-upstream.sh", 'FIREFOX_VERSION="145.0.2"')
-    assert_contains("build/scripts/fetch-verify-upstream.sh", "gpgv --keyring")
+    assert_contains("build/scripts/fetch-verify-upstream.sh", "EXPECTED_KEY_FPRS")
+    assert_contains("build/scripts/fetch-verify-upstream.sh", "VALIDSIG")
     assert_contains("build/scripts/fetch-verify-upstream.sh", "sha256sum --check --strict")
     assert_contains(".github/workflows/phase0.yml", "linux-x64")
     assert_contains(".github/workflows/phase0.yml", "win-x64")
     assert_contains(".github/workflows/phase0.yml", "macos-universal")
+    assert_contains(".github/workflows/phase0.yml", "permissions:")
 
 
 if __name__ == "__main__":
