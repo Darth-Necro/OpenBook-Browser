@@ -15,7 +15,8 @@
   },
   "permissions": [
     "nativeMessaging",
-    "storage"
+    "storage",
+    "idle"
   ],
   "background": {
     "page": "background.html",

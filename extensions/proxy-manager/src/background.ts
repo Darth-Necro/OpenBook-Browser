@@ -99,6 +99,11 @@ async function runProbe(): Promise<void> {
   try {
     const u = new URL(checkUrl);
     u.searchParams.set("openbook-probe", nonce);
+    // The fragment is never sent over the wire, so Firefox's webRequest/proxy
+    // details.url omits it — keeping it here would make activeProbeUrl differ
+    // from details.url, the exact-match exemption would miss, and the probe
+    // would cancel itself (health could never go healthy). Drop it.
+    u.hash = "";
     probeUrl = u.toString();
   } catch {
     return; // invalid stored URL: unprovable -> stays blocked

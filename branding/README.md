@@ -49,7 +49,7 @@ branding/openbook/
 
 ## How it maps into the Firefox source tree
 
-The branding patch `patches/branding/0001-use-openbook-branding.patch`:
+The branding patch `patches/branding/0001-branding-add-openbook-brand-directory.patch`:
 
 1. Adds this directory into the source checkout as
    `browser/branding/openbook/`.

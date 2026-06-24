@@ -189,13 +189,23 @@ impl HardwareSecretProvider for SoftwareFallback {
         let path = self.counter_path();
         match fs::read(&path) {
             Ok(b) if b.len() == 4 => Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]])),
-            // A counter file that EXISTS but is malformed is tampering or
-            // corruption — and "treat as zero" would hand back a full attempt
-            // budget, failing OPEN in exactly the direction the counter exists
-            // to prevent. Fail closed instead (same posture as a corrupt
-            // hardware secret above): the budget is unaccountable, so the
-            // vault is treated as erased. Writes are atomic (temp + rename),
-            // so a crash mid-update can never produce this state by itself.
+            // A counter file that EXISTS but is malformed is unaccountable —
+            // and "treat as zero" would hand back a full attempt budget,
+            // failing OPEN in exactly the direction the counter exists to
+            // prevent. We fail closed instead (same posture as a corrupt
+            // hardware secret above): the budget cannot be trusted, so the
+            // vault is treated as erased.
+            //
+            // HONEST LIMIT (see README "honest limits"): atomic temp+rename
+            // writes rule out a crash mid-update as a cause, but NOT external
+            // corruption — bit-rot, a torn sector, or restoring a partial
+            // backup can still land here, and the next unlock (even with the
+            // CORRECT secret) will then irreversibly erase. We accept that
+            // trade deliberately: a malformed counter is indistinguishable
+            // from a budget-reset attack by inspecting the file alone, and in
+            // software mode the counter offers no offline protection anyway
+            // (SoftwareFallback's warning). Hardening this further (an
+            // authenticated/redundant counter) is tracked, not done here.
             Ok(_) => Err(VaultError::new(
                 crate::error::ErrorCode::Erased,
                 "attempt counter corrupt; failing closed — vault is treated as erased",
@@ -269,11 +279,16 @@ fn sync_parent_dir(path: &Path) {
 fn write_file_restricted(path: &Path, data: &[u8]) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
     let tmp = tmp_path(path);
+    // Remove any stale temp left by a previous crash, then create EXCLUSIVELY
+    // (O_CREAT|O_EXCL). O_EXCL does not follow symlinks, so a pre-planted
+    // symlink at the predictable .tmp path can never redirect this write (e.g.
+    // leaking the freshly generated hardware secret to an attacker-chosen
+    // file). A symlink re-planted in the remove→create window fails the open.
+    let _ = fs::remove_file(&tmp);
     {
         let mut f = fs::OpenOptions::new()
             .write(true)
-            .create(true)
-            .truncate(true)
+            .create_new(true)
             .mode(0o600)
             .open(&tmp)?;
         f.write_all(data)?;
@@ -304,11 +319,14 @@ fn write_file_restricted(path: &Path, data: &[u8]) -> Result<()> {
 /// crash yields either the old value or the new value, never a partial file.
 fn write_file_durable(path: &Path, data: &[u8]) -> Result<()> {
     let tmp = tmp_path(path);
+    // Exclusive create (O_CREAT|O_EXCL) after clearing any stale temp: O_EXCL
+    // refuses to follow a pre-planted symlink at the predictable .tmp path, so
+    // an attacker cannot redirect or pre-seed the counter write through it.
+    let _ = fs::remove_file(&tmp);
     {
         let mut f = fs::OpenOptions::new()
             .write(true)
-            .create(true)
-            .truncate(true)
+            .create_new(true)
             .open(&tmp)?;
         f.write_all(data)?;
         f.flush()?;
@@ -598,5 +616,33 @@ mod tests {
         fs::write(d.path().join(SW_SECRET_FILE), [7u8; 5]).unwrap();
         let err = p.hardware_secret().expect_err("short secret must fail");
         assert_eq!(err.code, ErrorCode::Erased);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_does_not_follow_a_planted_symlink_at_the_tmp_path() {
+        use std::os::unix::fs::symlink;
+        let d = tempdir().unwrap();
+        let p = SoftwareFallback::new(d.path());
+        p.increment_counter().unwrap(); // establish a real counter
+
+        // Attacker pre-plants a symlink at the predictable "<counter>.tmp" path,
+        // aimed at a file outside the vault they want to capture or corrupt.
+        let victim = d.path().join("victim.txt");
+        fs::write(&victim, b"original").unwrap();
+        let tmp = d.path().join(format!("{SW_COUNTER_FILE}.tmp"));
+        symlink(&victim, &tmp).unwrap();
+
+        // The exclusive create (after clearing the stale path) must NOT write
+        // through the symlink into the victim file.
+        p.increment_counter().unwrap();
+        assert_eq!(
+            fs::read(&victim).unwrap(),
+            b"original",
+            "write followed the symlink into the victim file"
+        );
+        assert_eq!(p.read_counter().unwrap(), 2);
+        // The atomic rename consumes the temp; nothing dangling is left behind.
+        assert!(!tmp.exists(), "temp path left behind after the write");
     }
 }

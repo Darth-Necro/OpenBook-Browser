@@ -93,7 +93,7 @@ async function onSave(ev: Event): Promise<void> {
     return;
   }
   if (checkUrlRaw.length > 0 && !isValidCheckUrl(checkUrlRaw)) {
-    setText("form-error", "The health-check URL must be a valid https:// URL without credentials.");
+    setText("form-error", "The health-check URL must be a valid https:// URL without credentials or a #fragment.");
     return;
   }
   setText("form-error", "");

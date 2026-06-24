@@ -174,6 +174,11 @@ describe('isValidCheckUrl (probe target validation)', () => {
     expect(isValidCheckUrl('not a url')).toBe(false);
     expect(isValidCheckUrl('')).toBe(false);
   });
+  it('rejects a #fragment (it is stripped from the network details.url, so an', () => {
+    // exact-match probe carrying one would cancel itself -> permanent block).
+    expect(isValidCheckUrl('https://example.org/#ok')).toBe(false);
+    expect(isValidCheckUrl('https://example.org/health#section')).toBe(false);
+  });
 });
 
 describe('isProbeRequest (the single fail-closed exemption)', () => {
